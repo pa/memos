@@ -26,6 +26,14 @@ The `firestore` connection string is OIDC based (`authMechanism=MONGODB-OIDC`, `
 already used by hopnote. The official Go driver (`go.mongodb.org/mongo-driver/v2`) supports that environment natively, so no
 keys or passwords are involved.
 
+Feasibility checks run on 2026-10-10:
+
+- `mongo-driver/v2` v2.9.2 parses and validates the real skoop Firestore connection string: mechanism `MONGODB-OIDC`,
+  `ENVIRONMENT:gcp`, `TOKEN_RESOURCE:FIRESTORE`, `retryWrites=false`, `loadBalanced=true`.
+- `filter/ir.go` has no SQL in it, so a Mongo renderer can reuse the parser and IR as is.
+- The shared store suite runs per driver (`DRIVER=sqlite go test ./store/test/ -run TestSpace` passes), so the same tests
+  can gate a `firestore` driver.
+
 Firestore Mongo API facts that shape the design (Google's behavior differences page, updated 2026-10-07):
 
 - Multi-document ACID transactions with snapshot isolation and optimistic concurrency. Good for the existing
