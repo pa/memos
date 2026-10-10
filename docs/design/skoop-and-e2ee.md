@@ -82,9 +82,19 @@ SQLite.
 
 ### Data migration
 
-A `cloudrun/cpu-job` runs `memos migrate --from sqlite --to firestore` once. It reads the SQLite file from the bucket
-mount (read-only, after checkpointing the WAL) and writes every table to Firestore keeping IDs. Then the service switches
-to Firestore and the FUSE mount is removed. The old bucket objects stay as a backup until you confirm.
+None. Decided 2026-10-10: start fresh on Firestore. The old SQLite files stay untouched in the `gcs/notes` bucket.
+
+### As built (2026-10-10)
+
+- Uniqueness does not use unique indexes. The Firestore IAM condition skoop emits
+  (`resource.name == "projects/<p>/databases/<db>"`) does not cover index creation on collection groups, so the
+  runtime identity cannot create indexes (reported to skoop). Composite-key rows use the key as `_id`; unique columns
+  are claimed in a `uniques` collection in the same transaction. Query indexes are created in the background,
+  best-effort.
+- Writes that add a child row (invitation, memo in a Space, reaction, comment) bump a version field on the parent, so a
+  concurrent parent delete conflicts and retries. This replaces the SQL drivers' row locks.
+- Store suite with `DRIVER=firestore` on MongoDB 7: 302 pass, 17 skipped (raw SQL setup or released-binary upgrades).
+  SQLite suite unchanged. Not yet run against the real Firestore database.
 
 ## 3. Users, Spaces, and admin isolation
 
@@ -233,9 +243,9 @@ in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps key
 
 | # | Phase | Done when |
 | --- | --- | --- |
-| 0 | Backup: in-app export now; skoop debug storage download is blocked (reported) | You hold an export |
-| 1 | Firestore driver + Mongo filter renderer, `DRIVER=firestore` test suite green on Mongo, then on real Firestore | `go test ./store/...` green for 4 drivers |
-| 2 | skoop: add `firestore/mongodb`, grant `datastore.user` + `datastore.indexAdmin` with the IAM condition, build image from this repo, migration job, switch, drop the FUSE mount, GCS attachment provider | Live site on Firestore with your data |
+| 0 | Backup: skipped, starting fresh | Done |
+| 1 | Firestore driver + Mongo filter renderer, `DRIVER=firestore` test suite green on Mongo, then on real Firestore | Done on Mongo; real Firestore pending |
+| 2 | skoop: add `firestore/mongodb`, grants, build image from this repo, switch, drop the FUSE mount, GCS attachment provider | Live on Firestore 2026-10-10; GCS attachment provider pending |
 | 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Server tests cover isolation |
 | 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | All personal memos are ciphertext in Firestore |
 | 5 | E2EE Spaces: user key pairs, Space key sealed per member on invite, move memo in/out re-encrypts, rotate on removal, safety codes | Two test users share an encrypted Space with no shared passphrase; a third user and the instance admin see only ciphertext |
