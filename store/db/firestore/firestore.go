@@ -89,12 +89,20 @@ func NewDB(profile *profile.Profile) (store.Driver, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	started := time.Now()
 	if err := client.Ping(ctx, nil); err != nil {
 		_ = client.Disconnect(context.Background())
 		return nil, errors.Wrap(err, "failed to ping firestore")
 	}
+	slog.Info("firestore: connected", slog.String("database", dbName), slog.Duration("ping", time.Since(started)))
 	d := &DB{client: client, db: client.Database(dbName), profile: profile}
-	d.ensureIndexes(ctx)
+	// Indexes only speed queries up. Creating them can take long on
+	// Firestore, so do it in the background and never delay startup.
+	go func() {
+		indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		d.ensureIndexes(indexCtx)
+	}()
 	return d, nil
 }
 
@@ -190,8 +198,7 @@ func (*DB) GetDatabaseSize(context.Context) (int64, error) {
 
 // InitializeSchema creates the indexes. Called by the migrator for a fresh
 // database instead of executing LATEST.sql.
-func (d *DB) InitializeSchema(ctx context.Context) error {
-	d.ensureIndexes(ctx)
+func (d *DB) InitializeSchema(context.Context) error {
 	return nil
 }
 

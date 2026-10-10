@@ -151,16 +151,18 @@ func (d *DB) ensureIndexes(ctx context.Context) {
 		{colUniques, bson.D{{Key: "col", Value: 1}, {Key: "ref", Value: 1}}, "col_ref"},
 	}
 	for _, spec := range specs {
+		if ctx.Err() != nil {
+			return
+		}
 		_, err := d.col(spec.col).Indexes().CreateOne(ctx, mongo.IndexModel{Keys: spec.keys, Options: options.Index().SetName(spec.name)})
 		if err == nil || isIndexAlreadyExists(err) {
 			continue
 		}
+		d.indexWarning.Do(func() {
+			logIndexWarning(err)
+		})
 		if strings.Contains(err.Error(), "PermissionDenied") || strings.Contains(err.Error(), "permission") {
-			d.indexWarning.Do(func() {
-				logIndexWarning(err)
-			})
 			return
 		}
-		logIndexWarning(err)
 	}
 }
