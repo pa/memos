@@ -250,6 +250,24 @@ it is optional for a small trusted team.
 
 ### Unlock UX
 
+As built (2026-10-10): sign in with password, then enter the passphrase (first time: create it and save the recovery
+key). Keys live in memory only: a browser or app restart locks, and so do 30 minutes without activity. Open tabs of the
+same user share keys over a same-origin BroadcastChannel, so a new tab does not ask again. Using the recovery key sets
+a new passphrase and issues a new recovery key. "Remember this device" was not built, by choice.
+
+As built, memo encryption details:
+
+- Content is `memos-e2ee:v1:{k, iv, ct, t, p}`. `k` is the key id (`pk`, later `sk:<space>:<epoch>`), `t` blind tag
+  indexes (HMAC-SHA256 truncated to 128 bits), `p` coarse flags (link, code, tasks) so those filters still work.
+  AAD = memo uid + key id. The client picks the memo uid before sealing.
+- The server rejects envelopes whose tag index contains anything but hex digests, so a client bug cannot leak names.
+- A Connect interceptor seals outgoing memo content and opens incoming memos; tag filters are rewritten to indexes and
+  `content.contains` runs in the browser over the decrypted page. Tag counts are labeled from a tag dictionary sealed
+  with the personal key in the ENCRYPTION user setting.
+- The X25519 public key is published on setup and can never change (server-enforced), ready for Space key exchange.
+
+Original design:
+
 Sign in with password, then enter your one passphrase (first time: create it, save recovery key). Spaces open
 automatically, there is no extra passphrase. Option to remember the device for 30 days as a non-extractable key
 in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps keys only.
@@ -262,7 +280,7 @@ in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps key
 | 1 | Firestore driver + Mongo filter renderer, `DRIVER=firestore` test suite green on Mongo, then on real Firestore | Done on Mongo; real Firestore pending |
 | 2 | skoop: add `firestore/mongodb`, grants, build image from this repo, switch, drop the FUSE mount, GCS attachment provider | Done 2026-10-10. GCS storage uses the service account (`MEMOS_GCS_BUCKET`), no keys |
 | 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Done 2026-10-10 behind `MEMOS_PRIVATE_INSTANCE=true`; server tests cover isolation |
-| 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | All personal memos are ciphertext in Firestore |
+| 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | Done 2026-10-10 behind `MEMOS_REQUIRE_E2EE=true` (live). Server stores only ciphertext and blind tag indexes; verified in headless Chrome against a local server |
 | 5 | E2EE Spaces: user key pairs, Space key sealed per member on invite, move memo in/out re-encrypts, rotate on removal, safety codes | Two test users share an encrypted Space with no shared passphrase; a third user and the instance admin see only ciphertext |
 | 6 | Encrypted attachments and thumbnails, client export | No plaintext files in the bucket |
 | 7 | Hardening: CSP, auto-lock, recovery drill, restore drill | Checklist done |
