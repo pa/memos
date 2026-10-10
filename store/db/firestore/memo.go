@@ -148,7 +148,10 @@ func (d *DB) insertMemo(ctx context.Context, create *store.Memo) error {
 	}
 	maps.Copy(doc, memoPayloadFields(create.Payload))
 	if _, err := d.col(colMemo).InsertOne(ctx, doc); err != nil {
-		return uniqueErr(err, "memo", map[string]string{"uid": "uid"})
+		return err
+	}
+	if err := d.claim(ctx, colMemo, "uid", create.UID, id); err != nil {
+		return err
 	}
 	create.ID, create.CreatedTs, create.UpdatedTs, create.RowStatus = id, createdTs, updatedTs, store.Normal
 	return nil
@@ -438,7 +441,12 @@ func (d *DB) applyMemoUpdate(ctx context.Context, update *store.UpdateMemo) erro
 	}
 	ops := bson.M{"$set": set}
 	if _, err := d.col(colMemo).UpdateOne(ctx, bson.M{"_id": update.ID}, ops); err != nil {
-		return errors.Wrap(uniqueErr(err, "memo", map[string]string{"uid": "uid"}), "failed to update memo")
+		return errors.Wrap(err, "failed to update memo")
+	}
+	if v := update.UID; v != nil {
+		if err := d.reclaim(ctx, colMemo, "uid", *v, update.ID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -458,10 +466,10 @@ func (d *DB) UpdateMemo(ctx context.Context, update *store.UpdateMemo) error {
 // DeleteMemo deletes a memo and its reactions.
 func (d *DB) DeleteMemo(ctx context.Context, delete *store.DeleteMemo) error {
 	return d.withTx(ctx, func(ctx context.Context) error {
-		if _, err := d.col(colMemo).DeleteOne(ctx, bson.M{"_id": delete.ID}); err != nil {
+		if _, err := d.deleteRows(ctx, colMemo, bson.M{"_id": delete.ID}); err != nil {
 			return errors.Wrap(err, "failed to delete memo")
 		}
-		if _, err := d.col(colReaction).DeleteMany(ctx, bson.M{"memo_id": delete.ID}); err != nil {
+		if _, err := d.deleteRows(ctx, colReaction, bson.M{"memo_id": delete.ID}); err != nil {
 			return errors.Wrap(err, "failed to delete memo reactions")
 		}
 		return nil

@@ -174,12 +174,15 @@ func (d *DB) CreateSpace(ctx context.Context, create *store.Space, creatorID int
 		}
 		doc := spaceDoc{ID: id, UID: create.UID, Title: create.Title, Description: create.Description, Payload: payload}
 		if _, err := d.col(colSpace).InsertOne(ctx, doc); err != nil {
+			return errors.Wrap(err, "failed to create space")
+		}
+		if err := d.claim(ctx, colSpace, "uid", create.UID, id); err != nil {
 			if isUniqueViolation(err) {
 				return store.ErrSpaceAlreadyExists
 			}
-			return errors.Wrap(err, "failed to create space")
+			return err
 		}
-		if _, err := d.col(colSpaceMember).InsertOne(ctx, spaceMemberDoc{SpaceID: id, UserID: creatorID, Status: string(store.SpaceMemberStatusActive), Role: string(store.SpaceMemberRoleAdmin)}); err != nil {
+		if _, err := d.col(colSpaceMember).InsertOne(ctx, spaceMemberDoc{Key: spaceMemberKey(id, creatorID), SpaceID: id, UserID: creatorID, Status: string(store.SpaceMemberStatusActive), Role: string(store.SpaceMemberRoleAdmin)}); err != nil {
 			return errors.Wrap(err, "failed to create initial space admin")
 		}
 		space, err = doc.toStore()
@@ -360,6 +363,9 @@ func (d *DB) DeleteSpace(ctx context.Context, delete *store.DeleteSpace) (*store
 		if err != nil {
 			return errors.Wrap(err, "failed to delete space")
 		}
+		if _, err := d.col(colUniques).DeleteMany(ctx, bson.M{"col": colSpace, "ref": delete.ID}); err != nil {
+			return errors.Wrap(err, "failed to release space claims")
+		}
 		if res.DeletedCount != 1 {
 			return store.ErrSpaceNotFound
 		}
@@ -392,13 +398,13 @@ func (d *DB) deleteMemoSet(ctx context.Context, memoIDs []int32) ([]*store.Attac
 	}
 	for _, batch := range batches(memoIDs, batchSize) {
 		in := int32In(batch)
-		if _, err := d.col(colMemoShare).DeleteMany(ctx, bson.M{"memo_id": in}); err != nil {
+		if _, err := d.deleteRows(ctx, colMemoShare, bson.M{"memo_id": in}); err != nil {
 			return nil, errors.Wrap(err, "failed to delete memo shares")
 		}
-		if _, err := d.col(colMemo).DeleteMany(ctx, bson.M{"_id": in}); err != nil {
+		if _, err := d.deleteRows(ctx, colMemo, bson.M{"_id": in}); err != nil {
 			return nil, errors.Wrap(err, "failed to delete memos")
 		}
-		if _, err := d.col(colReaction).DeleteMany(ctx, bson.M{"memo_id": in}); err != nil {
+		if _, err := d.deleteRows(ctx, colReaction, bson.M{"memo_id": in}); err != nil {
 			return nil, errors.Wrap(err, "failed to delete memo reactions")
 		}
 		if _, err := d.col(colMemoRelation).DeleteMany(ctx, bson.M{"$or": bson.A{bson.M{"memo_id": in}, bson.M{"related_memo_id": in}}}); err != nil {
@@ -564,7 +570,7 @@ func (d *DB) CreateSpaceInvitation(ctx context.Context, create *store.SpaceInvit
 		if err := d.touchParents(ctx, create.SpaceID, create.UserID); err != nil {
 			return err
 		}
-		doc := spaceMemberDoc{SpaceID: create.SpaceID, UserID: create.UserID, Status: string(store.SpaceMemberStatusInvited), Role: string(create.Role)}
+		doc := spaceMemberDoc{Key: spaceMemberKey(create.SpaceID, create.UserID), SpaceID: create.SpaceID, UserID: create.UserID, Status: string(store.SpaceMemberStatusInvited), Role: string(create.Role)}
 		if _, err := d.col(colSpaceMember).InsertOne(ctx, doc); err != nil {
 			if isUniqueViolation(err) {
 				return store.ErrSpaceMemberAlreadyExists

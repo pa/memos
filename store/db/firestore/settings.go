@@ -59,8 +59,13 @@ func (d *DB) listIDs(ctx context.Context, collection string, filter any) ([]int3
 }
 
 func (d *DB) deleteByIDs(ctx context.Context, collection string, ids []int32) error {
+	return d.deleteRowsByIDs(ctx, collection, ids)
+}
+
+// deleteRowsByIDs deletes rows by integer id and releases their claims.
+func (d *DB) deleteRowsByIDs(ctx context.Context, collection string, ids []int32) error {
 	for _, batch := range batches(ids, batchSize) {
-		if _, err := d.col(collection).DeleteMany(ctx, bson.M{"_id": int32In(batch)}); err != nil {
+		if _, err := d.deleteRows(ctx, collection, bson.M{"_id": int32In(batch)}); err != nil {
 			return err
 		}
 	}
@@ -155,7 +160,10 @@ func (d *DB) CreateIdentityProvider(ctx context.Context, create *store.IdentityP
 		}
 		doc := idpDoc{ID: id, UID: create.UID, Name: create.Name, Type: create.Type.String(), IdentifierFilter: create.IdentifierFilter, Config: create.Config}
 		if _, err := d.col(colIDP).InsertOne(ctx, doc); err != nil {
-			return uniqueErr(err, "idp", map[string]string{"uid": "uid"})
+			return err
+		}
+		if err := d.claim(ctx, colIDP, "uid", create.UID, id); err != nil {
+			return err
 		}
 		create.ID = id
 		return nil
@@ -217,7 +225,7 @@ func (d *DB) UpdateIdentityProvider(ctx context.Context, update *store.UpdateIde
 
 // DeleteIdentityProvider deletes an identity provider.
 func (d *DB) DeleteIdentityProvider(ctx context.Context, delete *store.DeleteIdentityProvider) error {
-	_, err := d.col(colIDP).DeleteOne(ctx, bson.M{"_id": delete.ID})
+	_, err := d.deleteRows(ctx, colIDP, bson.M{"_id": delete.ID})
 	return err
 }
 
@@ -262,7 +270,7 @@ func (d *DB) ApplyAuthenticationConfigMutation(ctx context.Context, mutation *st
 			_, err = d.col(colSystemSetting).UpdateOne(ctx, bson.M{"_id": s.Name},
 				bson.M{"$set": bson.M{"value": s.Value, "description": s.Description}}, options.UpdateOne().SetUpsert(true))
 		case mutation.DeleteIdentityProviderID != nil:
-			_, err = d.col(colIDP).DeleteOne(ctx, bson.M{"_id": *mutation.DeleteIdentityProviderID})
+			_, err = d.deleteRows(ctx, colIDP, bson.M{"_id": *mutation.DeleteIdentityProviderID})
 		default:
 			return errors.New("authentication configuration mutation has no operation")
 		}

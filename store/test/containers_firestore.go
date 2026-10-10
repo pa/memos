@@ -114,6 +114,7 @@ type firestoreRawReader interface {
 	CountDocuments(ctx context.Context, collection string, filter map[string]any) (int64, error)
 	RawDocument(ctx context.Context, collection string, filter map[string]any) (map[string]any, error)
 	InsertRawDocument(ctx context.Context, collection string, doc map[string]any) error
+	DropIndexes(ctx context.Context) error
 }
 
 func firestoreRaw(t *testing.T, ts *store.Store) firestoreRawReader {

@@ -13,8 +13,6 @@ import (
 	"github.com/usememos/memos/store"
 )
 
-var userUniqueIndexes = map[string]string{"username": "username", "email": "email"}
-
 func (d *DB) insertUser(ctx context.Context, create *store.User) error {
 	id, err := d.nextID(ctx, colUser)
 	if err != nil {
@@ -40,7 +38,13 @@ func (d *DB) insertUser(ctx context.Context, create *store.User) error {
 		doc.Email = &email
 	}
 	if _, err := d.col(colUser).InsertOne(ctx, doc); err != nil {
-		return uniqueErr(err, "user", userUniqueIndexes)
+		return err
+	}
+	if err := d.claim(ctx, colUser, "username", create.Username, id); err != nil {
+		return err
+	}
+	if err := d.claim(ctx, colUser, "email", create.Email, id); err != nil {
+		return err
 	}
 	create.ID = id
 	create.CreatedTs = ts
@@ -112,10 +116,20 @@ func (d *DB) UpdateUser(ctx context.Context, update *store.UpdateUser) (*store.U
 		if len(ops) > 0 {
 			res, err := d.col(colUser).UpdateOne(ctx, bson.M{"_id": update.ID}, ops)
 			if err != nil {
-				return uniqueErr(err, "user", userUniqueIndexes)
+				return err
 			}
 			if res.MatchedCount == 0 {
 				return errors.New("sql: no rows in result set")
+			}
+			if v := update.Username; v != nil {
+				if err := d.reclaim(ctx, colUser, "username", *v, update.ID); err != nil {
+					return err
+				}
+			}
+			if v := update.Email; v != nil {
+				if err := d.reclaim(ctx, colUser, "email", *v, update.ID); err != nil {
+					return err
+				}
 			}
 		}
 		doc := userDoc{}
@@ -320,21 +334,21 @@ func (d *DB) DeleteUser(ctx context.Context, delete *store.DeleteUser) (*store.D
 			keys = append(keys, storepb.UserSetting_Key(storepb.UserSetting_Key_value[s.Key]))
 		}
 
-		if err := d.deleteByIDs(ctx, colMemo, memoIDs); err != nil {
+		if err := d.deleteRowsByIDs(ctx, colMemo, memoIDs); err != nil {
 			return err
 		}
 		for _, batch := range batches(memoIDs, batchSize) {
-			if _, err := d.col(colReaction).DeleteMany(ctx, bson.M{"memo_id": int32In(batch)}); err != nil {
+			if _, err := d.deleteRows(ctx, colReaction, bson.M{"memo_id": int32In(batch)}); err != nil {
 				return err
 			}
-			if _, err := d.col(colMemoShare).DeleteMany(ctx, bson.M{"memo_id": int32In(batch)}); err != nil {
+			if _, err := d.deleteRows(ctx, colMemoShare, bson.M{"memo_id": int32In(batch)}); err != nil {
 				return err
 			}
 			if _, err := d.col(colMemoRelation).DeleteMany(ctx, bson.M{"$or": bson.A{bson.M{"memo_id": int32In(batch)}, bson.M{"related_memo_id": int32In(batch)}}}); err != nil {
 				return err
 			}
 		}
-		if err := d.deleteByIDs(ctx, colAttachment, attachmentIDs(attachments)); err != nil {
+		if err := d.deleteRowsByIDs(ctx, colAttachment, attachmentIDs(attachments)); err != nil {
 			return err
 		}
 		for _, step := range []struct {
@@ -348,7 +362,7 @@ func (d *DB) DeleteUser(ctx context.Context, delete *store.DeleteUser) (*store.D
 			{colUserSetting, bson.M{"user_id": delete.ID}},
 			{colUser, bson.M{"_id": delete.ID}},
 		} {
-			if _, err := d.col(step.col).DeleteMany(ctx, step.filter); err != nil {
+			if _, err := d.deleteRows(ctx, step.col, step.filter); err != nil {
 				return err
 			}
 		}
@@ -375,7 +389,7 @@ func (d *DB) UpsertUserSetting(ctx context.Context, upsert *store.UserSetting) (
 		update["$unset"] = bson.M{"token_hashes": ""}
 	}
 	_, err := d.col(colUserSetting).UpdateOne(ctx,
-		bson.M{"user_id": upsert.UserID, "key": upsert.Key.String()},
+		bson.M{"_id": userSettingKey(upsert.UserID, upsert.Key.String())},
 		update,
 		options.UpdateOne().SetUpsert(true),
 	)
@@ -455,8 +469,6 @@ func (d *DB) GetUserByPATHash(ctx context.Context, tokenHash string) (*store.PAT
 	return nil, errors.New("PAT not found")
 }
 
-var userIdentityUniqueIndexes = map[string]string{"provider_extern": "provider", "user_provider": "user_id"}
-
 func (d *DB) insertUserIdentity(ctx context.Context, create *store.UserIdentity) error {
 	id, err := d.nextID(ctx, colUserIdentity)
 	if err != nil {
@@ -465,7 +477,14 @@ func (d *DB) insertUserIdentity(ctx context.Context, create *store.UserIdentity)
 	ts := now()
 	doc := userIdentityDoc{ID: id, UserID: create.UserID, Provider: create.Provider, ExternUID: create.ExternUID, CreatedTs: ts, UpdatedTs: ts}
 	if _, err := d.col(colUserIdentity).InsertOne(ctx, doc); err != nil {
-		return uniqueErr(err, "user_identity", userIdentityUniqueIndexes)
+		return err
+	}
+	providerExtern, userProvider := identityClaims(create.UserID, create.Provider, create.ExternUID)
+	if err := d.claim(ctx, colUserIdentity, "provider_extern", providerExtern, id); err != nil {
+		return err
+	}
+	if err := d.claim(ctx, colUserIdentity, "user_provider", userProvider, id); err != nil {
+		return err
 	}
 	create.ID, create.CreatedTs, create.UpdatedTs = id, ts, ts
 	return nil
@@ -538,6 +557,6 @@ func (d *DB) DeleteUserIdentities(ctx context.Context, delete *store.DeleteUserI
 	if delete.Provider != nil {
 		filter["provider"] = *delete.Provider
 	}
-	_, err := d.col(colUserIdentity).DeleteMany(ctx, filter)
+	_, err := d.deleteRows(ctx, colUserIdentity, filter)
 	return err
 }

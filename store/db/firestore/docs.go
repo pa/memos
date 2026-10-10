@@ -79,6 +79,7 @@ func (s *spaceDoc) toStore() (*store.Space, error) {
 }
 
 type spaceMemberDoc struct {
+	Key     string `bson:"_id,omitempty"`
 	SpaceID int32  `bson:"space_id"`
 	UserID  int32  `bson:"user_id"`
 	Status  string `bson:"status"`
@@ -163,6 +164,7 @@ func (m *memoDoc) toStore(includeContent bool) (*store.Memo, error) {
 }
 
 type memoRelationDoc struct {
+	Key           string `bson:"_id,omitempty"`
 	MemoID        int32  `bson:"memo_id"`
 	RelatedMemoID int32  `bson:"related_memo_id"`
 	Type          string `bson:"type"`

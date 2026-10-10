@@ -43,7 +43,10 @@ func (d *DB) insertAttachment(ctx context.Context, create *store.Attachment) err
 		MemoID: create.MemoID, StorageType: storageType, Reference: create.Reference, Payload: payload,
 	}
 	if _, err := d.col(colAttachment).InsertOne(ctx, doc); err != nil {
-		return uniqueErr(err, "attachment", map[string]string{"uid": "uid"})
+		return err
+	}
+	if err := d.claim(ctx, colAttachment, "uid", create.UID, id); err != nil {
+		return err
 	}
 	create.ID, create.CreatedTs, create.UpdatedTs = id, ts, ts
 	return nil
@@ -254,7 +257,12 @@ func (d *DB) applyAttachmentUpdate(ctx context.Context, update *store.UpdateAtta
 		return nil
 	}
 	if _, err := d.col(colAttachment).UpdateOne(ctx, bson.M{"_id": update.ID}, bson.M{"$set": set}); err != nil {
-		return errors.Wrap(uniqueErr(err, "attachment", map[string]string{"uid": "uid"}), "failed to update attachment")
+		return errors.Wrap(err, "failed to update attachment")
+	}
+	if v := update.UID; v != nil {
+		if err := d.reclaim(ctx, colAttachment, "uid", *v, update.ID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -359,11 +367,11 @@ func (d *DB) DeleteAttachmentsWithPolicy(ctx context.Context, policy *store.Atta
 			return err
 		}
 		for _, id := range attachmentIDs {
-			res, err := d.col(colAttachment).DeleteOne(ctx, bson.M{"_id": id})
+			n, err := d.deleteRows(ctx, colAttachment, bson.M{"_id": id})
 			if err != nil {
 				return errors.Wrap(err, "failed to delete attachment")
 			}
-			if res.DeletedCount != 1 {
+			if n != 1 {
 				return store.ErrMemoMutationConflict
 			}
 		}
@@ -483,11 +491,11 @@ func (d *DB) ApplyMemoMutation(ctx context.Context, mutation *store.MemoMutation
 			}
 		}
 		for _, a := range removed {
-			res, err := d.col(colAttachment).DeleteOne(ctx, bson.M{"_id": a.ID, "memo_id": mutation.MemoID})
+			n, err := d.deleteRows(ctx, colAttachment, bson.M{"_id": a.ID, "memo_id": mutation.MemoID})
 			if err != nil {
 				return errors.Wrap(err, "failed to delete removed attachment")
 			}
-			if res.DeletedCount != 1 {
+			if n != 1 {
 				return errors.Wrap(store.ErrMemoMutationConflict, "attachment is no longer bound to the memo")
 			}
 		}
@@ -532,7 +540,7 @@ func (d *DB) insertCommentRelation(ctx context.Context, memoID, contextMemoID in
 	if memoID <= 0 || contextMemoID <= 0 || memoID == contextMemoID {
 		return errors.New("invalid COMMENT relation")
 	}
-	if _, err := d.col(colMemoRelation).InsertOne(ctx, memoRelationDoc{MemoID: memoID, RelatedMemoID: contextMemoID, Type: string(store.MemoRelationComment)}); err != nil {
+	if _, err := d.col(colMemoRelation).InsertOne(ctx, memoRelationDoc{Key: memoRelationKey(memoID, contextMemoID, string(store.MemoRelationComment)), MemoID: memoID, RelatedMemoID: contextMemoID, Type: string(store.MemoRelationComment)}); err != nil {
 		return errors.Wrap(err, "failed to insert COMMENT relation")
 	}
 	return nil
@@ -540,7 +548,9 @@ func (d *DB) insertCommentRelation(ctx context.Context, memoID, contextMemoID in
 
 func (d *DB) upsertRelation(ctx context.Context, relation *store.MemoRelation) error {
 	key := bson.M{"memo_id": relation.MemoID, "related_memo_id": relation.RelatedMemoID, "type": string(relation.Type)}
-	_, err := d.col(colMemoRelation).UpdateOne(ctx, key, bson.M{"$setOnInsert": key}, options.UpdateOne().SetUpsert(true))
+	_, err := d.col(colMemoRelation).UpdateOne(ctx,
+		bson.M{"_id": memoRelationKey(relation.MemoID, relation.RelatedMemoID, string(relation.Type))},
+		bson.M{"$setOnInsert": key}, options.UpdateOne().SetUpsert(true))
 	return err
 }
 
@@ -728,7 +738,10 @@ func (d *DB) UpsertReaction(ctx context.Context, upsert *store.Reaction) (*store
 		ts := now()
 		doc := reactionDoc{ID: id, CreatedTs: ts, CreatorID: upsert.CreatorID, MemoID: upsert.MemoID, ReactionType: upsert.ReactionType}
 		if _, err := d.col(colReaction).InsertOne(ctx, doc); err != nil {
-			return uniqueErr(err, "reaction", map[string]string{"creator_memo_type": "creator_id"})
+			return err
+		}
+		if err := d.claim(ctx, colReaction, "creator_memo_type", reactionClaim(upsert.CreatorID, upsert.MemoID, upsert.ReactionType), id); err != nil {
+			return err
 		}
 		upsert.ID, upsert.CreatedTs = id, ts
 		return nil
@@ -804,7 +817,7 @@ func (d *DB) DeleteReaction(ctx context.Context, delete *store.DeleteReaction) e
 			if (current.CreatorID != *delete.ActorUserID && !actorIsAdmin) || (delete.MemoID != nil && current.MemoID != *delete.MemoID) {
 				return store.ErrReactionPermissionDenied
 			}
-			_, err = d.col(colReaction).DeleteOne(ctx, bson.M{"_id": *delete.ID})
+			_, err = d.deleteRows(ctx, colReaction, bson.M{"_id": *delete.ID})
 			return errors.Wrap(err, "failed to delete reaction")
 		})
 	}
@@ -818,7 +831,7 @@ func (d *DB) DeleteReaction(ctx context.Context, delete *store.DeleteReaction) e
 	if len(f) == 0 {
 		return nil
 	}
-	_, err := d.col(colReaction).DeleteMany(ctx, f)
+	_, err := d.deleteRows(ctx, colReaction, f)
 	return err
 }
 
@@ -837,7 +850,10 @@ func (d *DB) CreateMemoShare(ctx context.Context, create *store.MemoShare) (*sto
 		ts := now()
 		doc := memoShareDoc{ID: id, UID: create.UID, MemoID: create.MemoID, CreatorID: create.CreatorID, CreatedTs: ts, ExpiresTs: create.ExpiresTs}
 		if _, err := d.col(colMemoShare).InsertOne(ctx, doc); err != nil {
-			return uniqueErr(err, "memo_share", map[string]string{"uid": "uid"})
+			return err
+		}
+		if err := d.claim(ctx, colMemoShare, "uid", create.UID, id); err != nil {
+			return err
 		}
 		create.ID, create.CreatedTs = id, ts
 		return nil
@@ -892,7 +908,7 @@ func (d *DB) GetMemoShare(ctx context.Context, find *store.FindMemoShare) (*stor
 func (d *DB) DeleteMemoShare(ctx context.Context, delete *store.DeleteMemoShare) error {
 	f := memoShareFilter(delete.ID, delete.UID, nil, nil)
 	if delete.Policy == nil {
-		_, err := d.col(colMemoShare).DeleteMany(ctx, f)
+		_, err := d.deleteRows(ctx, colMemoShare, f)
 		return err
 	}
 	return d.withTx(ctx, func(ctx context.Context) error {
@@ -900,11 +916,11 @@ func (d *DB) DeleteMemoShare(ctx context.Context, delete *store.DeleteMemoShare)
 			return err
 		}
 		f["memo_id"] = *delete.MemoID
-		res, err := d.col(colMemoShare).DeleteMany(ctx, f)
+		n, err := d.deleteRows(ctx, colMemoShare, f)
 		if err != nil {
 			return err
 		}
-		if res.DeletedCount != 1 {
+		if n != 1 {
 			return store.ErrMemoMutationConflict
 		}
 		return nil
