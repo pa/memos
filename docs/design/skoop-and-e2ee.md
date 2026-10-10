@@ -184,6 +184,16 @@ passphrase to each new member and again after a removal. Automatic exchange can 
 | Server-side export and import | Client-side export of decrypted memos |
 | Third-party apps and API tokens | See ciphertext only. The web app (installable PWA) is the client |
 
+### Scale (for example 1 TB)
+
+- Almost all of the volume will be attachments. They live in Cloud Storage and stream in encrypted chunks, so size does not
+  slow the app down.
+- Memo text is small. Firestore scales storage and reads on its own. Timeline, Space feed and date views page by time
+  on the server and stay fast at any size, because only the visible page is downloaded and decrypted.
+- Full-text search is the one cost of E2EE: the server cannot search ciphertext. Plan: each browser keeps a local search
+  index in IndexedDB, built once and then updated as memos change. A new device builds it in the background. Tag filters
+  use the blind index on the server, so they stay fast without the local index.
+
 ### Unlock UX
 
 Sign in with password, then enter the personal passphrase (first time: create it, save recovery key). Opening a Space for
