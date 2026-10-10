@@ -66,7 +66,7 @@ func TestCheckMemoReadSpaceAudience(t *testing.T) {
 
 	base.Viewer = appAdmin
 	base.ViewerSpaceMember = false
-	require.True(t, CheckMemoReadContext(base).Allowed(), "an instance administrator reads any memo by name")
+	require.Equal(t, MemoReadDenialPermission, CheckMemoReadContext(base).Denial, "an instance administrator is not a Space member")
 
 	shareID := memo.ID
 	base.Viewer = nil
@@ -79,40 +79,32 @@ func TestCheckMemoReadSpaceAudience(t *testing.T) {
 	require.Equal(t, MemoReadDenialNotFound, CheckMemoReadContext(base).Denial)
 }
 
-func TestInstanceAdminIsMemoSuperuser(t *testing.T) {
+func TestInstanceAdminHasNoContentAccess(t *testing.T) {
 	owner := &store.User{ID: 1, RowStatus: store.Normal, Role: store.RoleUser}
 	admin := &store.User{ID: 2, RowStatus: store.Normal, Role: store.RoleAdmin}
-	archivedAdmin := &store.User{ID: 3, RowStatus: store.Archived, Role: store.RoleAdmin}
 	spaceID := int32(7)
 
 	private := &store.Memo{ID: 1, CreatorID: owner.ID, RowStatus: store.Normal, Visibility: store.Private}
-	archived := &store.Memo{ID: 2, CreatorID: owner.ID, RowStatus: store.Archived, Visibility: store.Public}
+	archived := &store.Memo{ID: 2, CreatorID: owner.ID, RowStatus: store.Archived, Visibility: store.Private}
 	spaceMemo := &store.Memo{ID: 3, CreatorID: owner.ID, RowStatus: store.Normal, Visibility: store.SpaceAudience, SpaceID: &spaceID}
 	for _, memo := range []*store.Memo{private, archived, spaceMemo} {
-		require.Equal(t, MemoReadDecision{Class: MemoReadClassPrivate}, CheckMemoReadContext(MemoReadContext{
-			Memo: memo, Viewer: admin, CreatorValid: true, SpaceValid: true,
-		}), "admin reads memo %d by name", memo.ID)
 		require.False(t, CheckMemoReadContext(MemoReadContext{
-			Memo: memo, Viewer: archivedAdmin, CreatorValid: true, SpaceValid: true,
-		}).Allowed(), "an archived administrator holds no privilege")
-		require.True(t, CanManageMemo(admin, memo))
-		require.False(t, CanManageMemo(archivedAdmin, memo))
+			Memo: memo, Viewer: admin, CreatorValid: true, SpaceValid: true,
+		}).Allowed(), "admin cannot read memo %d", memo.ID)
+		require.False(t, CanManageMemo(admin, memo), "admin cannot manage memo %d", memo.ID)
 	}
 
-	// Structural validity still applies.
-	require.Equal(t, MemoReadDenialNotFound, CheckMemoReadContext(MemoReadContext{
-		Memo: spaceMemo, Viewer: admin, CreatorValid: true, SpaceValid: false,
-	}).Denial, "a dangling SPACE placement is not readable, even by an administrator")
-	require.Equal(t, MemoReadDenialNotFound, CheckMemoReadContext(MemoReadContext{
-		Memo: private, Viewer: admin, CreatorValid: false, SpaceValid: true,
-	}).Denial)
+	// The admin's own memos work as for any author.
+	adminMemo := &store.Memo{ID: 4, CreatorID: admin.ID, RowStatus: store.Normal, Visibility: store.Private}
+	require.True(t, CheckMemoReadContext(MemoReadContext{Memo: adminMemo, Viewer: admin, CreatorValid: true, SpaceValid: true}).Allowed())
+	require.True(t, CanManageMemo(admin, adminMemo))
 
 	require.True(t, CanManageMemo(owner, private))
 	require.False(t, CanManageMemo(&store.User{ID: 4, RowStatus: store.Normal, Role: store.RoleUser}, private))
 	attachment := &store.Attachment{ID: 1, CreatorID: owner.ID}
 	require.True(t, CanManageAttachment(owner, attachment))
-	require.True(t, CanManageAttachment(admin, attachment))
-	require.False(t, CanManageAttachment(archivedAdmin, attachment))
+	require.False(t, CanManageAttachment(admin, attachment))
+	require.False(t, CanManageAttachment(&store.User{ID: owner.ID, RowStatus: store.Archived}, attachment))
 }
 
 func TestCheckMemoReadInvalidStateFailsClosed(t *testing.T) {

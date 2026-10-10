@@ -128,13 +128,8 @@ func (s *APIService) resolveWritableSpaceByName(ctx context.Context, name string
 }
 
 // resolveSpaceForMemoPlacement resolves the Space a memo is being placed in.
-// An instance administrator may place memos in any existing Space; every
-// other caller must be an active member. Collection scopes such as the space
-// filter keep using resolveWritableSpaceByName, so feeds stay membership-only.
+// The caller must be an active member; the instance role grants nothing here.
 func (s *APIService) resolveSpaceForMemoPlacement(ctx context.Context, name string, user *store.User) (*store.Space, error) {
-	if access.IsInstanceAdmin(user) {
-		return s.resolveSpaceByName(ctx, name)
-	}
 	return s.resolveWritableSpaceByName(ctx, name, user.ID)
 }
 
@@ -183,8 +178,7 @@ func mapMemoWriteError(err error, operation string) error {
 }
 
 // requireAssignedMemoWritable requires the placement of an assigned memo to be
-// valid and the actor to be an active member of it. An instance administrator
-// is exempt from membership but not from placement validity.
+// valid and the actor to be an active member of it.
 func (s *APIService) requireAssignedMemoWritable(ctx context.Context, memo *store.Memo, user *store.User) error {
 	if memo.SpaceID == nil {
 		return nil
@@ -195,9 +189,6 @@ func (s *APIService) requireAssignedMemoWritable(ctx context.Context, memo *stor
 	}
 	if space == nil {
 		return status.Errorf(codes.FailedPrecondition, "memo has invalid space placement")
-	}
-	if access.IsInstanceAdmin(user) {
-		return nil
 	}
 	active, err := s.isActiveSpaceMember(ctx, space.ID, user.ID)
 	if err != nil {

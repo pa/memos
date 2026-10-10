@@ -95,7 +95,7 @@ func TestReactionWritePolicySpaceParticipationIsMemoLocal(t *testing.T) {
 	_, err = ts.UpsertReaction(ctx, &store.Reaction{
 		CreatorID: applicationAdmin.ID, MemoID: spaceMemo.ID, ReactionType: "application-admin", Policy: reactionWritePolicy(applicationAdmin.ID),
 	})
-	require.NoError(t, err, "an instance administrator participates without membership")
+	require.ErrorIs(t, err, store.ErrMemoSpaceMembershipRequired, "an instance administrator is not a member")
 
 	require.NoError(t, ts.DeleteSpaceMember(ctx, &store.DeleteSpaceMember{SpaceID: space.ID, UserID: member.ID}, owner.ID))
 	_, err = ts.UpsertReaction(ctx, &store.Reaction{

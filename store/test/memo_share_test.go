@@ -80,6 +80,7 @@ func TestMemoShareAuthorizedDeletion(t *testing.T) {
 				delete.UID = &share.UID
 			case "instance admin":
 				delete.Policy.ActorUserID = admin.ID
+				wantErr = store.ErrMemoPermissionDenied
 			case "archived memo":
 				require.NoError(t, ts.UpdateMemo(ctx, &store.UpdateMemo{ID: memo.ID, RowStatus: new(store.Archived)}))
 			case "unrelated actor":

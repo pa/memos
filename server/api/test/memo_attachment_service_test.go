@@ -81,12 +81,12 @@ func TestSetMemoAttachments(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, memo)
 
-		// Application ADMIN is the superuser and manages any memo's attachments.
+		// The instance role grants no access to another user's memo.
 		_, err = ts.Service.SetMemoAttachments(hostCtx, &apipb.SetMemoAttachmentsRequest{
 			Name:        memo.Name,
 			Attachments: []*apipb.Attachment{},
 		})
-		require.NoError(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("SetMemoAttachments permission denied for non-owner", func(t *testing.T) {

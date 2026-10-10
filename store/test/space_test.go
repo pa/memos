@@ -294,7 +294,7 @@ func TestSpaceMemoAccessDoesNotFlowAcrossCommentRelation(t *testing.T) {
 	_, err = ts.CreateMemo(ctx, &store.Memo{
 		UID: "admin-assigned", CreatorID: applicationAdmin.ID, Content: "superuser", Visibility: store.Private, SpaceID: &space.ID,
 	})
-	require.NoError(t, err, "an instance administrator places memos without membership")
+	require.ErrorIs(t, err, store.ErrMemoSpaceMembershipRequired, "an instance administrator is not a member")
 	missingSpaceID := space.ID + 1000
 	_, err = ts.CreateMemo(ctx, &store.Memo{
 		UID: "admin-dangling", CreatorID: applicationAdmin.ID, Content: "no", Visibility: store.Public, SpaceID: &missingSpaceID,

@@ -51,22 +51,19 @@ func TestAnonymousMemoAccessFollowsInstanceAccessSetting(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestInstanceAdminIsSuperuserForNamedMemoOperations(t *testing.T) {
+func TestInstanceAdminHasNoAccessToOtherUsersMemos(t *testing.T) {
 	ctx := context.Background()
 	ts := NewTestService(t)
 	defer ts.Cleanup()
 
-	owner, err := ts.CreateRegularUser(ctx, "superuser-owner")
+	owner, err := ts.CreateRegularUser(ctx, "isolation-owner")
 	require.NoError(t, err)
 	ownerCtx := ts.CreateUserContext(ctx, owner.ID)
-	admin, err := ts.CreateHostUser(ctx, "superuser-admin")
+	admin, err := ts.CreateHostUser(ctx, "isolation-admin")
 	require.NoError(t, err)
 	adminCtx := ts.CreateUserContext(ctx, admin.ID)
-	other, err := ts.CreateRegularUser(ctx, "superuser-other")
-	require.NoError(t, err)
-	otherCtx := ts.CreateUserContext(ctx, other.ID)
 
-	space, err := ts.Store.CreateSpace(ctx, &store.Space{UID: "superuser-space", Title: "Superuser"}, owner.ID)
+	space, err := ts.Store.CreateSpace(ctx, &store.Space{UID: "isolation-space", Title: "Isolation"}, owner.ID)
 	require.NoError(t, err)
 	private, err := ts.Service.CreateMemo(ownerCtx, &apipb.CreateMemoRequest{Memo: &apipb.Memo{
 		Content:    "private memo",
@@ -80,73 +77,60 @@ func TestInstanceAdminIsSuperuserForNamedMemoOperations(t *testing.T) {
 	}})
 	require.NoError(t, err)
 
-	// Point reads bypass audience and membership for the administrator only.
-	_, err = ts.Service.GetMemo(otherCtx, &apipb.GetMemoRequest{Name: private.Name})
+	// Point reads: the administrator is a stranger.
+	_, err = ts.Service.GetMemo(adminCtx, &apipb.GetMemoRequest{Name: private.Name})
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
-	got, err := ts.Service.GetMemo(adminCtx, &apipb.GetMemoRequest{Name: private.Name})
-	require.NoError(t, err)
-	require.Equal(t, "private memo", got.Content)
-	got, err = ts.Service.GetMemo(adminCtx, &apipb.GetMemoRequest{Name: spaceMemo.Name})
-	require.NoError(t, err, "a SPACE memo is readable by name without membership")
-	require.Equal(t, "spaces/"+space.UID, got.GetSpace())
+	_, err = ts.Service.GetMemo(adminCtx, &apipb.GetMemoRequest{Name: spaceMemo.Name})
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
 
-	// Collections keep the audience predicate.
+	// Collections.
 	feed, err := ts.Service.ListMemos(adminCtx, &apipb.ListMemosRequest{PageSize: 50})
 	require.NoError(t, err)
 	for _, candidate := range feed.Memos {
-		require.NotEqual(t, private.Name, candidate.Name, "another user's PRIVATE memo must not surface in the administrator's feed")
-		require.NotEqual(t, spaceMemo.Name, candidate.Name, "a SPACE memo must not surface without membership")
+		require.NotEqual(t, private.Name, candidate.Name)
+		require.NotEqual(t, spaceMemo.Name, candidate.Name)
 	}
 	_, err = ts.Service.ListMemos(adminCtx, &apipb.ListMemosRequest{Filter: `space == "spaces/` + space.UID + `"`})
-	require.Equal(t, codes.NotFound, status.Code(err), "the Space feed stays membership-only")
+	require.Equal(t, codes.NotFound, status.Code(err))
 
-	// Named mutations: content, audience, placement, comments, and deletion.
-	_, err = ts.Service.UpdateMemo(otherCtx, &apipb.UpdateMemoRequest{
-		Memo:       &apipb.Memo{Name: private.Name, Content: "hijacked"},
-		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"content"}},
-	})
-	require.Equal(t, codes.PermissionDenied, status.Code(err))
-	updated, err := ts.Service.UpdateMemo(adminCtx, &apipb.UpdateMemoRequest{
+	// Mutations: content, placement, comments, deletion.
+	_, err = ts.Service.UpdateMemo(adminCtx, &apipb.UpdateMemoRequest{
 		Memo:       &apipb.Memo{Name: private.Name, Content: "edited by admin"},
 		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"content"}},
 	})
-	require.NoError(t, err)
-	require.Equal(t, "edited by admin", updated.Content)
-	require.Equal(t, "users/"+owner.Username, updated.Creator, "authorship is unchanged")
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	_, err = ts.Service.UpdateMemo(adminCtx, &apipb.UpdateMemoRequest{
 		Memo:       &apipb.Memo{Name: spaceMemo.Name, Content: "edited without membership"},
 		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"content"}},
 	})
-	require.NoError(t, err)
-	_, err = ts.Service.UpdateMemo(adminCtx, &apipb.UpdateMemoRequest{
-		Memo:       &apipb.Memo{Name: private.Name, Visibility: apipb.Visibility_SPACE, Space: new("spaces/" + space.UID)},
-		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"visibility", "space"}},
-	})
-	require.NoError(t, err, "an administrator places memos in a Space they are not a member of")
-	_, err = ts.Service.UpdateMemo(adminCtx, &apipb.UpdateMemoRequest{
-		Memo:       &apipb.Memo{Name: private.Name, Space: new("spaces/does-not-exist")},
-		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"space"}},
-	})
-	require.Equal(t, codes.NotFound, status.Code(err), "structural validity still applies")
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	_, err = ts.Service.CreateMemoComment(adminCtx, &apipb.CreateMemoCommentRequest{
 		Parent:  spaceMemo.Name,
 		Comment: &apipb.Memo{Content: "admin comment"},
 	})
-	require.NoError(t, err, "participation does not require membership")
-
-	_, err = ts.Service.DeleteMemo(otherCtx, &apipb.DeleteMemoRequest{Name: private.Name})
-	require.Equal(t, codes.PermissionDenied, status.Code(err))
-	_, err = ts.Service.DeleteMemo(adminCtx, &apipb.DeleteMemoRequest{Name: private.Name})
-	require.NoError(t, err)
-	_, err = ts.Service.GetMemo(ownerCtx, &apipb.GetMemoRequest{Name: private.Name})
-	require.Equal(t, codes.NotFound, status.Code(err))
-
-	// An archived administrator holds no privilege.
-	archived := store.Archived
-	_, err = ts.Store.UpdateUser(ctx, &store.UpdateUser{ID: admin.ID, RowStatus: &archived})
-	require.NoError(t, err)
-	_, err = ts.Service.GetMemo(adminCtx, &apipb.GetMemoRequest{Name: spaceMemo.Name})
 	require.Error(t, err)
+	_, err = ts.Service.DeleteMemo(adminCtx, &apipb.DeleteMemoRequest{Name: private.Name})
+	require.Error(t, err)
+
+	// The admin cannot place their own memo into a Space they are not in.
+	adminMemo, err := ts.Service.CreateMemo(adminCtx, &apipb.CreateMemoRequest{Memo: &apipb.Memo{
+		Content:    "admin memo",
+		Visibility: apipb.Visibility_PRIVATE,
+	}})
+	require.NoError(t, err)
+	_, err = ts.Service.UpdateMemo(adminCtx, &apipb.UpdateMemoRequest{
+		Memo:       &apipb.Memo{Name: adminMemo.Name, Visibility: apipb.Visibility_SPACE, Space: new("spaces/" + space.UID)},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"visibility", "space"}},
+	})
+	require.Error(t, err)
+
+	// Owner content is untouched.
+	got, err := ts.Service.GetMemo(ownerCtx, &apipb.GetMemoRequest{Name: private.Name})
+	require.NoError(t, err)
+	require.Equal(t, "private memo", got.Content)
+	got, err = ts.Service.GetMemo(ownerCtx, &apipb.GetMemoRequest{Name: spaceMemo.Name})
+	require.NoError(t, err)
+	require.Equal(t, "members only", got.Content)
 }
 
 func TestMemoReadAllowsArchivedCreatorAccordingToAudience(t *testing.T) {

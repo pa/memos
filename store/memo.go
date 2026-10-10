@@ -138,19 +138,20 @@ type MemoWritePolicy struct {
 }
 
 // MemoActorState is the actor's user row state as read inside a mutation
-// transaction. Admin marks an active instance administrator; see
-// access.IsInstanceAdmin for what that grants. A missing user is the zero
-// value.
+// transaction. A missing user is the zero value.
+//
+// Admin is always false: the instance role grants no content privilege, so
+// drivers that still branch on it behave as for any other member. The field
+// is kept so driver code stays close to upstream.
 type MemoActorState struct {
 	Active bool
 	Admin  bool
 }
 
-// NewMemoActorState derives the actor state from a user row. An archived
-// administrator is neither active nor privileged.
-func NewMemoActorState(rowStatus RowStatus, role Role) MemoActorState {
-	active := rowStatus == Normal
-	return MemoActorState{Active: active, Admin: active && role == RoleAdmin}
+// NewMemoActorState derives the actor state from a user row. The role is
+// accepted for driver compatibility but never elevates content access.
+func NewMemoActorState(rowStatus RowStatus, _ Role) MemoActorState {
+	return MemoActorState{Active: rowStatus == Normal}
 }
 
 // MemoWriteSnapshot is the current database state used to validate a

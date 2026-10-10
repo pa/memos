@@ -324,7 +324,7 @@ func TestCreateAttachmentMemoPermission(t *testing.T) {
 		require.Equal(t, memoIDFromName(ctx, t, ts, memo.Name), *stored.MemoID)
 	})
 
-	t.Run("admin creates an admin-owned attachment linked to another user's memo", func(t *testing.T) {
+	t.Run("admin cannot attach files to another user's memo", func(t *testing.T) {
 		ts := NewTestService(t)
 		defer ts.Cleanup()
 
@@ -342,7 +342,7 @@ func TestCreateAttachmentMemoPermission(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		created, err := ts.Service.CreateAttachment(adminCtx, &apipb.CreateAttachmentRequest{
+		_, err = ts.Service.CreateAttachment(adminCtx, &apipb.CreateAttachmentRequest{
 			Attachment: &apipb.Attachment{
 				Filename: "admin.txt",
 				Type:     "text/plain",
@@ -350,27 +350,10 @@ func TestCreateAttachmentMemoPermission(t *testing.T) {
 				Memo:     &memo.Name,
 			},
 		})
-		require.NoError(t, err, "an instance administrator is the superuser for named memo operations")
+		require.Error(t, err, "the instance role grants no content access")
 		attachments, err := ts.Store.ListAttachments(ctx, &store.FindAttachment{CreatorID: &admin.ID})
 		require.NoError(t, err)
-		require.Len(t, attachments, 1, "the attachment stays owned by the administrator")
-		require.NotNil(t, attachments[0].MemoID)
-
-		// Removal deletes the attachment, so the memo author cannot remove a
-		// file the administrator owns; the administrator can.
-		_, err = ts.Service.SetMemoAttachments(ownerCtx, &apipb.SetMemoAttachmentsRequest{
-			Name:        memo.Name,
-			Attachments: []*apipb.Attachment{},
-		})
-		require.Equal(t, codes.PermissionDenied, status.Code(err))
-		_, err = ts.Service.SetMemoAttachments(adminCtx, &apipb.SetMemoAttachmentsRequest{
-			Name:        memo.Name,
-			Attachments: []*apipb.Attachment{},
-		})
-		require.NoError(t, err)
-		attachments, err = ts.Store.ListAttachments(ctx, &store.FindAttachment{CreatorID: &admin.ID})
-		require.NoError(t, err)
-		require.Empty(t, attachments, "removal deletes the bound attachment: %s", created.Name)
+		require.Empty(t, attachments)
 	})
 
 	t.Run("non-owner cannot create attachment directly linked to memo", func(t *testing.T) {

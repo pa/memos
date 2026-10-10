@@ -419,9 +419,9 @@ func TestMemoMutationAttachmentOwnership(t *testing.T) {
 		{"author cannot bind another users upload", false, false, "bind", false},
 		{"author cannot delete another users attachment", false, false, "remove", false},
 		{"author can retain legacy foreign binding", false, false, "keep", true},
-		{"admin can bind own upload to another users memo", true, false, "bind", true},
+		{"admin cannot bind own upload to another users memo", true, false, "bind", false},
 		{"admin cannot bind unrelated users upload", true, true, "bind", false},
-		{"admin can remove another users bound attachment", true, true, "remove", true},
+		{"admin cannot remove another users bound attachment", true, true, "remove", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newMemoMutationFixture(t)
@@ -456,7 +456,13 @@ func TestMemoMutationAttachmentOwnership(t *testing.T) {
 			before := f.state()
 			err = f.store.ApplyMemoMutation(f.ctx, mutation)
 			if !tc.allowed {
-				require.ErrorIs(t, err, store.ErrMemoMutationConflict)
+				if tc.admin {
+					// The admin is not the memo author, so the write policy
+					// rejects the mutation before ownership is considered.
+					require.ErrorIs(t, err, store.ErrMemoPermissionDenied)
+				} else {
+					require.ErrorIs(t, err, store.ErrMemoMutationConflict)
+				}
 				require.Equal(t, before, f.state())
 				return
 			}

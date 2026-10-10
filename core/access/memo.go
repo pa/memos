@@ -59,29 +59,28 @@ func IsActiveUser(user *store.User) bool {
 }
 
 // IsInstanceAdmin reports whether the user is an active application ADMIN.
-// An instance administrator is the superuser for named memo operations: every
-// memo-local authorization check (authorship, audience, Space membership and
-// participation, attachment and reaction ownership) passes. Structural
-// validity still applies, and collection listings keep the audience predicate
-// so feeds never surface other users' private memos.
+// Instance administration covers instance concerns only (settings, accounts,
+// storage). It grants no access to memos, attachments, reactions, or Spaces:
+// content is private to its author and to members of the Space it is in, so
+// content authorization must never consult this.
 func IsInstanceAdmin(user *store.User) bool {
 	return IsActiveUser(user) && user.Role == store.RoleAdmin
 }
 
 // CanManageMemo reports whether the actor may perform author-level operations
-// on the memo: the active author, or an instance administrator.
+// on the memo: only its active author.
 func CanManageMemo(actor *store.User, memo *store.Memo) bool {
-	return memo != nil && ownsOrAdministers(actor, memo.CreatorID)
+	return memo != nil && owns(actor, memo.CreatorID)
 }
 
 // CanManageAttachment reports whether the actor may mutate an attachment row
-// directly: the active owner, or an instance administrator.
+// directly: only its active owner.
 func CanManageAttachment(actor *store.User, attachment *store.Attachment) bool {
-	return attachment != nil && ownsOrAdministers(actor, attachment.CreatorID)
+	return attachment != nil && owns(actor, attachment.CreatorID)
 }
 
-func ownsOrAdministers(actor *store.User, creatorID int32) bool {
-	return IsActiveUser(actor) && (actor.ID == creatorID || actor.Role == store.RoleAdmin)
+func owns(actor *store.User, creatorID int32) bool {
+	return IsActiveUser(actor) && actor.ID == creatorID
 }
 
 // CheckMemoReadContext evaluates access to exactly one memo. Unknown audience,
@@ -103,11 +102,6 @@ func CheckMemoReadContext(ctx MemoReadContext) MemoReadDecision {
 
 	if memo.RowStatus != store.Normal && memo.RowStatus != store.Archived {
 		return MemoReadDecision{Denial: MemoReadDenialNotFound}
-	}
-	// A structurally valid memo is readable by name to an instance
-	// administrator regardless of audience, placement, or lifecycle state.
-	if IsInstanceAdmin(ctx.Viewer) {
-		return MemoReadDecision{Class: MemoReadClassPrivate}
 	}
 
 	viewerActive := IsActiveUser(ctx.Viewer)

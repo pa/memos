@@ -98,7 +98,8 @@ func (s *APIService) prepareMemoAttachments(
 	removedAttachments := make([]*store.Attachment, 0)
 	for _, attachment := range currentAttachments {
 		if !requestedIDs[attachment.ID] {
-			if !store.MemoAttachmentRemovalAllowed(attachment, memo.ID, user.ID, access.IsInstanceAdmin(user)) {
+			// The instance role never widens attachment ownership.
+			if !store.MemoAttachmentRemovalAllowed(attachment, memo.ID, user.ID, false) {
 				return nil, status.Errorf(codes.PermissionDenied, "cannot remove another user's attachment")
 			}
 			removedAttachments = append(removedAttachments, attachment)
@@ -284,7 +285,7 @@ func (s *APIService) normalizeMemoAttachmentRequest(
 			return nil, status.Errorf(codes.NotFound, "attachment not found: %s", attachmentUID)
 		}
 		_, alreadyInTarget := currentByID[attachment.ID]
-		if !alreadyInTarget && !store.MemoAttachmentBindingOwnerAllowed(attachment.CreatorID, memo.CreatorID, user.ID, access.IsInstanceAdmin(user)) {
+		if !alreadyInTarget && !store.MemoAttachmentBindingOwnerAllowed(attachment.CreatorID, memo.CreatorID, user.ID, false) {
 			// Hide another user's unlinked or foreign-memo attachment from the
 			// caller. A new binding must be owned by the memo author or by the
 			// acting administrator; ownership is never transferred between

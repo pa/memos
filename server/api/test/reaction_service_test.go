@@ -140,14 +140,12 @@ func TestUpsertMemoReactionRevalidatesSpaceParticipation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// An application ADMIN is the superuser and participates without membership.
-	adminReaction, err := ts.Service.UpsertMemoReaction(adminCtx, &apipb.UpsertMemoReactionRequest{
+	// An application ADMIN is not a member and cannot participate.
+	_, err = ts.Service.UpsertMemoReaction(adminCtx, &apipb.UpsertMemoReactionRequest{
 		Parent:   memoName,
 		Reaction: &apipb.Reaction{ReactionType: "🔥"},
 	})
-	require.NoError(t, err)
-	_, err = ts.Service.DeleteMemoReaction(adminCtx, &apipb.DeleteMemoReactionRequest{Name: adminReaction.Name})
-	require.NoError(t, err)
+	require.Error(t, err)
 
 	require.NoError(t, ts.Store.DeleteSpaceMember(ctx, &store.DeleteSpaceMember{SpaceID: space.ID, UserID: member.ID}, owner.ID))
 	_, err = ts.Service.DeleteMemoReaction(memberCtx, &apipb.DeleteMemoReactionRequest{Name: memberReaction.Name})
@@ -357,15 +355,15 @@ func TestDeleteMemoReaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, reaction)
 
-		// Application ADMIN is the superuser and may withdraw any reaction.
+		// The instance role cannot withdraw another user's reaction.
 		_, err = ts.Service.DeleteMemoReaction(hostCtx, &apipb.DeleteMemoReactionRequest{
 			Name: reaction.Name,
 		})
-		require.NoError(t, err)
+		require.Equal(t, codes.PermissionDenied, status.Code(err))
 		memoID := parseMemoIDFromNameForTest(t, ts, memo.Name)
 		remainingReaction, err := ts.Store.GetReaction(ctx, &store.FindReaction{MemoID: &memoID, CreatorID: &regularUser.ID})
 		require.NoError(t, err)
-		require.Nil(t, remainingReaction)
+		require.NotNil(t, remainingReaction)
 	})
 
 	t.Run("DeleteMemoReaction permission denied for non-owner", func(t *testing.T) {

@@ -83,12 +83,12 @@ func TestSetMemoRelations(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, memo)
 
-		// Application ADMIN is the superuser and manages any memo's relations.
+		// The instance role grants no access to another user's memo.
 		_, err = ts.Service.SetMemoRelations(hostCtx, &apipb.SetMemoRelationsRequest{
 			Name:      memo.Name,
 			Relations: []*apipb.MemoRelation{},
 		})
-		require.NoError(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("SetMemoRelations permission denied for non-owner", func(t *testing.T) {
