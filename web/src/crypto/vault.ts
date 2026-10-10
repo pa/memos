@@ -7,9 +7,7 @@
 import { fromB64, toB64 } from "./core";
 import type { Secrets } from "./keyring";
 import { PERSONAL_KEY_ID } from "./memo";
-
-/** Auto-lock after this much inactivity. */
-export const IDLE_LOCK_MS = 30 * 60 * 1000;
+import { forgetSession, getLockPolicy, idleTimeoutMs, persistSession } from "./session";
 
 type Listener = () => void;
 
@@ -79,6 +77,7 @@ class Vault {
     this.spaceKeys.clear();
     this.touch();
     if (broadcast) this.post({ type: "share", secrets: this.toWire() });
+    void persistSession(user, secrets);
     this.emit();
   }
 
@@ -89,6 +88,7 @@ class Vault {
     this.user = undefined;
     this.spaceKeys.clear();
     if (this.idleTimer) clearTimeout(this.idleTimer);
+    forgetSession();
     if (broadcast && user) this.post({ type: "lock", user });
     this.emit();
   }
@@ -126,7 +126,14 @@ class Vault {
   private touch() {
     if (!this.secrets) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => this.lock(), IDLE_LOCK_MS);
+    const timeout = idleTimeoutMs(getLockPolicy());
+    if (timeout !== undefined) this.idleTimer = setTimeout(() => this.lock(), timeout);
+  }
+
+  /** Re-applies the lock policy after the user changes it. */
+  applyPolicy() {
+    this.touch();
+    if (this.secrets && this.user) void persistSession(this.user, this.secrets);
   }
 
   private emit() {

@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { clearAccessToken, getAccessToken } from "@/auth-state";
 import { authServiceClient, refreshAccessToken, userServiceClient } from "@/connect";
+import { vault } from "@/crypto/vault";
 import { userKeys } from "@/hooks/useUserQueries";
 import type {
   User,
@@ -146,6 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUserSettings, queryClient]);
 
   const logout = useCallback(async () => {
+    // Forget unlocked keys on this device and in other open tabs.
+    vault.lock();
     try {
       await authServiceClient.signOut({});
     } catch (error) {

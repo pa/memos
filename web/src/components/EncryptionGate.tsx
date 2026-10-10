@@ -23,6 +23,7 @@ import {
   unlockWithPassphrase,
   unlockWithRecoveryKey,
 } from "@/crypto/keyring";
+import { restoreSession } from "@/crypto/session";
 import { loadTagDictionary } from "@/crypto/tags";
 import { vault } from "@/crypto/vault";
 import useCurrentUser from "@/hooks/useCurrentUser";
@@ -43,6 +44,16 @@ type KeyringState =
   | { status: "error"; message: string };
 
 const encryptionSettingName = (userName: string) => `${userName}/settings/ENCRYPTION`;
+
+/** Loads the sealed tag dictionary for an already unlocked vault. */
+async function loadTagDictionaryFor(userName: string) {
+  try {
+    const setting = await userServiceClient.getUserSetting({ name: encryptionSettingName(userName) });
+    if (setting.value.case === "encryptionSetting") await loadTagDictionary(setting.value.value.tagDictionary);
+  } catch {
+    // Labels rebuild as memos are opened.
+  }
+}
 
 async function saveKeyring(userName: string, keyring: Keyring, publicKey?: Uint8Array) {
   const paths = ["keyring"];
@@ -77,11 +88,21 @@ const EncryptionGate = ({ children }: { children: ReactNode }) => {
     vault.setSignedInUser(currentUser?.name);
   }, [currentUser?.name]);
 
-  // A tab opened while another tab is unlocked borrows its keys.
+  // Restore this tab's own unlocked session (survives reloads, not restarts),
+  // otherwise borrow keys from another open tab of the same user.
   useEffect(() => {
     if (!requireE2ee || !currentUser || unlocked) return;
     let cancelled = false;
-    vault.requestFromOtherTabs(currentUser.name).finally(() => {
+    (async () => {
+      const restored = await restoreSession(currentUser.name);
+      if (cancelled) return;
+      if (restored) {
+        vault.unlock(currentUser.name, restored, false);
+        await loadTagDictionaryFor(currentUser.name);
+        return;
+      }
+      await vault.requestFromOtherTabs(currentUser.name);
+    })().finally(() => {
       if (!cancelled) setAskedOtherTabs(true);
     });
     return () => {
