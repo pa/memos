@@ -1,149 +1,183 @@
-# Memos on skoop, with passphrase end-to-end encryption
+# Memos on skoop: Firestore storage, passphrase E2EE, private multi-user spaces
 
-Status: draft for discussion (not implemented).
+Status: draft, decisions recorded 2026-10-10, not implemented.
+
+## 0. Decisions
+
+| Question | Decision |
+| --- | --- |
+| Database | Rewrite storage to Firestore (MongoDB-compatible), the managed database skoop offers |
+| Encryption scope | Every memo, always. No plaintext mode |
+| Users | Multi-user. The instance admin invites people. Each person is a separate user who creates their own Spaces and invites their own team members. The admin cannot see other people's Spaces or memos |
 
 ## 1. What skoop gives us
 
-The skoop catalog for the `memos` app (read live from `skoop get resource-types`):
+Read live from `skoop get resource-types` for the `memos` app:
 
-| Kind | Use for memos | Limits that matter |
+| Kind | Role here | Limits that matter |
 | --- | --- | --- |
-| `cloudrun/cpu` | The memos server | Stateless, scale to zero, max 5 instances, 1 vCPU, up to 2Gi, CPU throttled between requests |
-| `cloudrun/cpu-job` | One-off jobs (migration, backfill) | Run to completion |
-| `gcs/standard` | Attachments, DB replica, backups | IAM scoped to the bucket |
-| `firestore/mongodb` | Document DB over the MongoDB wire protocol | No SQL, `retryWrites=false`, stale idle connections |
-| `firebase_hosting/gcp` | Front door, `notes.pramodhayyappan.dev`, TLS, CDN | Forwards only the `__session` cookie, caches anything `public` |
-| `identity/gcp` | Google, GitHub, email link sign-in | Not needed, memos has its own auth |
-| `pubsub`, `cloud_tasks` | Async work | Not needed now |
+| `cloudrun/cpu` | Memos server | Stateless, max 5 instances, 1 vCPU, up to 2Gi, CPU throttled between requests |
+| `cloudrun/cpu-job` | One-off data migration from SQLite | Run to completion |
+| `firestore/mongodb` | Primary database | Mongo wire protocol, OIDC auth from the service account, `retryWrites=false`, stale idle connections |
+| `gcs/standard` | Attachments (ciphertext) | Grant scoped by the bucket IAM condition |
+| `firebase_hosting/gcp` | `notes.pramodhayyappan.dev`, TLS, CDN | Readme says only `__session` is forwarded. Live probe showed `memos_refresh` does arrive today |
 
-There is no Postgres or MySQL kind. The only managed database is Firestore (Mongo API).
+The `firestore` connection string is OIDC based (`authMechanism=MONGODB-OIDC`, `ENVIRONMENT:gcp,TOKEN_RESOURCE:FIRESTORE`),
+already used by hopnote. The official Go driver (`go.mongodb.org/mongo-driver/v2`) supports that environment natively, so no
+keys or passwords are involved.
 
-## 2. What is deployed today, and what is wrong with it
+Firestore Mongo API facts that shape the design (Google's behavior differences page, updated 2026-10-07):
 
-`cloudrun/web` runs the stock image with `MEMOS_DATA=/var/opt/memos` on a GCS FUSE mount of `gcs/notes`, `max_instances=1`.
-`firebase_hosting/front` fronts it on the custom domain.
+- Multi-document ACID transactions with snapshot isolation and optimistic concurrency. Good for the existing
+  "validate then write" store transactions, but conflicts abort, so every transaction needs a retry loop.
+- No index on `_id` by default, no wildcard indexes, multi-key must be chosen at index creation.
+- Unsorted queries have no stable order. Every list must sort explicitly.
+- No `$merge` / `$out`. Lookups (`$lookup`) and regex are supported.
+- No auto-increment. Memos uses `int32` IDs everywhere (`store.Memo.ID`, foreign keys, proto store messages).
 
-Problems, most urgent first:
+## 2. Database: Firestore store driver
 
-1. **SQLite on GCS FUSE is unsafe.** FUSE has no file locking and no shared memory for the WAL `-shm` file, every write
-   rewrites whole objects, and two instances overlapping during a deploy can both write. This is a corruption and data
-   loss risk, not only a speed issue.
-2. **Refresh cookie (verified OK today).** The skoop readme says Firebase Hosting forwards only `__session`, but a live
-   probe on 2026-10-10 showed `memos_refresh` does reach the server on `/memos.api.v1.AuthService/RefreshToken`
-   ("invalid refresh token" versus "refresh token not found" without it). No change needed now. Renaming to
-   `__session` stays an optional hardening item if this platform behavior changes.
-3. **CDN caching (verified OK).** Attachments are served `private, no-store`, and API responses `no-store`. Only avatars
-   on a public instance are `public, max-age=3600`, which is fine. Enabling `cdn.enforce_no_store` is optional defense
-   in depth.
-4. **Attachments default to LOCAL storage** (`storageFromLegacySetting` in `store/storage.go`), which means files under
-   `MEMOS_DATA`, today the GCS FUSE mount. It works but is slow, and it disappears once the FUSE mount is removed.
-5. skoop shows pending changes on all three resources that were never released.
+### Shape
 
-## 3. Database: options
+New package `store/db/firestore` implementing `store.Driver` (66 methods; the SQLite driver is 4.4k lines across 25
+files). Registered in `store/db/db.go` as driver `firestore`, configured with `MEMOS_DRIVER=firestore` and
+`MEMOS_DSN=${firestore.<name>.out.attributes.connection_string}`.
 
-### Option A (recommended): SQLite on local disk, replicated to GCS with Litestream
+| SQL concept | Firestore approach |
+| --- | --- |
+| Tables | One collection per table: `memo`, `user`, `space`, `space_member`, `attachment`, `memo_relation`, `reaction`, `inbox`, `memo_share`, `user_setting`, `instance_setting`, `idp`, `user_identity` |
+| `INTEGER PRIMARY KEY AUTOINCREMENT` | `counters` collection with `$inc` inside the same transaction. Keeps `int32` IDs so nothing above the store changes. One counter per collection is a hotspot, which is fine at personal and team scale |
+| `UNIQUE` (memo uid, username, email, space uid) | Mirror documents keyed by the unique value (`_id = "memo_uid:<uid>"`) inserted in the same transaction. Duplicate `_id` fails the transaction |
+| Joins in access checks | Denormalize what lists need (for example `space_id` and `creator_id` on memos) and do point reads in the transaction for the rest |
+| `json_extract` on payload | Store payload as a nested BSON document, query fields directly |
+| Migrations / `LATEST.sql` | Index definitions in Go, created idempotently at startup (`createIndexes`). Schema version recorded in `instance_setting` like today |
+| `GetDatabaseSize` | Return -1 (allowed by the interface) |
 
-- DB file lives on the container's local disk (`/tmp`, memory backed). On start: `litestream restore` from
-  `gs://<bucket>/db`. While running: `litestream replicate -exec memos` streams WAL pages to GCS.
-- Keep `max_instances=1`. Add a single-writer lease (a GCS object with `if-generation-match`) so a new revision waits for
-  the old one to flush and exit during a deploy. Without it, the overlap window can lose writes.
-- CPU throttling between requests can delay replication. The live revision has `run.googleapis.com/cpu-throttling:
-  true`, and the module's `annotations` field sets service annotations, not revision template ones, so we cannot
-  assume it can be turned off. Plan: a write-path hook (Connect interceptor on mutating RPCs) that blocks until
-  Litestream has synced the WAL before responding (Litestream as a Go library, not a sidecar), plus a final flush on
-  SIGTERM.
-- Code change is small: Dockerfile, entrypoint, lease. Zero changes to the 66-method store driver, the CEL to SQL
-  filter engine, or migrations. Upstream merges stay easy.
-- Cost: cold start includes a restore (fast for a notes DB). Single instance forever, fine for personal use.
+### Filters
 
-### Option B: a Firestore (Mongo) store driver
+`filter/` compiles CEL to an IR, then renders SQL. Add a Mongo renderer that emits a `bson.D` from the same IR. With
+every memo encrypted, the server-side filter shrinks to metadata only: `creator`, `visibility`, `pinned`, timestamps,
+`space`, row status, and tags only if we keep them plaintext (section 4). `content.contains`, regex, `has_task_list`,
+`has_link`, `has_code`, title move to the client.
 
-- New `store/db/firestore` implementing all of `store.Driver` (about 66 methods, sqlite driver is 4.4k lines), a Mongo
-  renderer for the `filter/` engine (today it only emits SQL), migrations re-thought, transactions checked against the
-  Firestore Mongo API.
-- Gains: real multi-instance scaling, no restore on cold start.
-- Cost: weeks of work, large permanent fork surface, every upstream schema change needs porting.
+### Testing
 
-E2EE (section 5) moves search and filtering to the client anyway, which removes much of what a richer database would buy.
+`store/test/` already runs the same 47 test files against each driver via `DRIVER=...` and TestContainers. Add
+`DRIVER=firestore`. Locally the tests run against a MongoDB 7 container, which is close but not identical to Firestore.
+Before cutover, run the same suite once against a real Firestore database to catch the differences (index rules,
+transaction conflicts, sort order).
 
-### Attachments
+### What stays
 
-Add a native GCS storage provider in `provider/storage/gcs` using the service account (no HMAC keys), set it as the
-default, and copy existing local files (and any DB-stored blobs) to it with references updated. Optionally use V4 signed URLs (`enable_url_signing`). With E2EE the
-objects are ciphertext anyway.
+SQLite, MySQL and Postgres drivers stay untouched so upstream merges keep working, and local development can still use
+SQLite.
 
-## 4. skoop wiring (Option A)
+### Data migration
 
-- `cloudrun/web`: build from this repo with `--source`, a skoop Dockerfile that builds the frontend too (linux/amd64).
-  Remove `gcs_volumes`. Env: `MEMOS_DRIVER=sqlite`, `MEMOS_DSN=/tmp/memos/memos_prod.db`, replica URL and attachment
-  bucket from `${gcs.notes.out.attributes.bucket_name}`. Keep the existing `roles/storage.objectAdmin` grant with its
-  bucket condition. If we enable a probe, add a `/health/live` route (Cloud Run reserves paths ending in `z`, so
-  `/healthz` is not reachable from Cloud Run probes).
-- `firebase_hosting/front`: set `cdn.enforce_no_store=true` with a whitelist for hashed `/assets/**` only.
-- One-time migration: copy the current `memos_prod.db` from the bucket, checkpoint it, seed the Litestream replica.
+A `cloudrun/cpu-job` runs `memos migrate --from sqlite --to firestore` once. It reads the SQLite file from the bucket
+mount (read-only, after checkpointing the WAL) and writes every table to Firestore keeping IDs. Then the service switches
+to Firestore and the FUSE mount is removed. The old bucket objects stay as a backup until you confirm.
 
-## 5. End-to-end encryption with a passphrase
+## 3. Users, Spaces, and admin isolation
+
+Today's model (from `docs/design/multi-spaces.md` and `core/access`):
+
+- Spaces, members with `ADMIN`/`USER` roles, and invite then accept already exist.
+- An instance `ADMIN` is a superuser: on any named memo operation it bypasses authorship and Space membership checks.
+  Lists keep normal visibility rules.
+
+Changes:
+
+1. **Invite-only signup.** Set `disallow_user_registration`. The admin creates a user, or better, creates a one-time
+   invite link (new `UserInvitation`: token hash, email, expiry). The invitee sets their own password, then their own
+   passphrase. The admin never handles anyone's passphrase.
+2. **Remove the admin content bypass.** `IsInstanceAdmin` shortcuts in `core/access` and the store drivers (about 50 call
+   sites) stop granting memo, attachment, reaction or Space access. Instance admin keeps only instance concerns: settings,
+   user invites, disabling or deleting accounts, storage. With E2EE the bypass would only ever return ciphertext anyway,
+   so removing it makes the rule match reality.
+3. **No implicit visibility between users.** Memos are always `PRIVATE` (author only) or `SPACE` (members of one Space).
+   `PROTECTED` (all users of the instance) and `PUBLIC` are removed from the UI and rejected by the API, because they
+   cannot be encrypted for "everyone".
+4. **Space invites stay inside the instance.** A Space admin invites an existing user by username, as today. Users can only
+   find each other by exact username or email, not by listing users, so users do not see who else is on the instance.
+
+## 4. End-to-end encryption
 
 ### Threat model
 
-The server, GCP, and anyone with bucket or DB access see only ciphertext for memo bodies and attachments. They still see
-metadata: timestamps, sizes, counts, pinned, visibility, relations, and reactions. Caveat: the server ships the web app,
-so a compromised server could ship JS that steals the passphrase. That is true of every browser-based E2EE app.
+The server, GCP, the admin, and anyone with database or bucket access see ciphertext for memo bodies, comments,
+attachments and their names, Space titles and descriptions. They see metadata: who is in which Space, timestamps, sizes,
+counts, pins, relations, reactions. A compromised server could ship JavaScript that steals the passphrase, which is the
+limit of any browser-based E2EE app.
 
-### Keys (same design as hopnote; its `web/src/crypto` suite passes, 14 of 14 tests on 2026-10-10)
+### Keys
 
-- Random 256-bit master key (MK) per user.
-- Passphrase -> Argon2id (64 MiB, t=3) -> KEK, wraps MK with AES-256-GCM.
-- Recovery key (shown once) also wraps MK. Lose both and the data is gone, by design.
-- Keyring stored server-side as a new `UserSetting` key `ENCRYPTION_KEYRING` (public parameters and wrapped keys only).
-- The login password and the passphrase are separate. Changing the passphrase rewraps MK, no re-encryption.
-- Unlock after sign-in, MK held in memory. Optional "remember this device" as a non-extractable `CryptoKey` in
-  IndexedDB. Auto-lock after idle.
+Per user (hopnote design, its crypto suite passes 14 of 14):
+
+- Account key pair: X25519 for key exchange plus Ed25519 for signatures, generated in the browser.
+- Personal content key `PK` (random 256-bit) for memos with no Space.
+- Passphrase -> Argon2id (64 MiB, t=3) -> key that wraps the private keys and `PK`. A recovery key wraps them too.
+- Stored as `UserSetting ENCRYPTION_KEYRING`. The public keys are readable by other users so they can share with you.
+
+Per Space:
+
+- Space key `SK` (random 256-bit), with an epoch number.
+- For each member, `SK` is sealed to that member's X25519 public key and stored on the `space_member` row
+  (`wrapped_space_keys: [{epoch, sealed}]`).
+- Invite: the inviting Space admin's browser seals `SK` to the invitee's public key when creating the invitation. On
+  accept, the server copies it to the membership. The server never sees `SK`.
+- Remove a member: the next admin action rotates to a new epoch, seals the new `SK` to remaining members, and new memos
+  use it. Old memos stay on the old epoch (the removed member may have cached them anyway). Optional re-encrypt of old
+  memos.
+- Trust: on first contact the inviter sees the invitee's key fingerprint. Showing and comparing fingerprints is
+  optional, but it is the only defense against a malicious server swapping keys.
 
 ### What gets encrypted
 
-- **Memo content**: AES-256-GCM, AAD bound to memo uid and format version, stored in `memo.content` as a versioned
-  envelope, with a new `encrypted` flag on the memo payload (proto change, regenerated).
-- **Attachments**: encrypted client-side in chunks before upload. Filename and MIME type encrypted too. Thumbnails are
-  generated in the browser and uploaded encrypted.
-- **Comments** on your own encrypted memos: same key.
+| Data | Key |
+| --- | --- |
+| Memo content and comments | `PK` if unassigned, `SK` if in a Space. AAD = memo uid, Space uid, epoch, version |
+| Attachments (bytes, filename, MIME) | Random per-file key, wrapped by the memo's key. Encrypted in chunks for large files |
+| Thumbnails | Generated in the browser, encrypted like attachments |
+| Space title and description | `SK` |
+| Tags | Encrypted inside the content. Optional blind index (HMAC of the tag with a key derived from `PK`/`SK`) so the server can still filter by tag without learning names |
+| Saved filters (memo views) | `PK` |
 
-### What breaks, and the replacement
+### Server features that change
 
-| Server feature | Why it breaks | Plan |
+| Feature | Plan |
+| --- | --- |
+| Search, content filters, task/link/code flags, title | Client side, over decrypted memos, with an in-memory index per session |
+| Tag tree and tag filter | Client side, plus the blind index for server-side paging |
+| `MemoPayload` rebuild runner (`core/memopayload`) | Disabled for encrypted memos. The client sends the blind-index tags |
+| Public share links, `PUBLIC`, `PROTECTED`, RSS | Removed. Possible later: share link with key in the URL fragment |
+| AI, MCP server, webhooks, email notification bodies, link previews, mention parsing | Off. Notifications send "new memo in Space X" without content |
+| Server-side export and import | Client-side export of decrypted memos |
+| Third-party apps and API tokens | See ciphertext only. The web app (installable PWA) is the client |
+
+### Unlock UX
+
+Sign in with password, then enter passphrase (first time: create passphrase, save recovery key). Option to remember the
+device for 30 days as a non-extractable key in IndexedDB. Auto-lock after idle. Changing the passphrase rewraps keys only.
+
+## 5. Phases
+
+| # | Phase | Done when |
 | --- | --- | --- |
-| Search, `content.contains` filters | Server sees ciphertext | Client-side search over decrypted memos (in memory index) |
-| Tags, tag tree, has_task_list, title (`MemoPayload`) | Server parses markdown | Client computes them. Open question: plaintext tags or encrypted |
-| Public share links, PUBLIC visibility, RSS | Viewer has no key | Disabled for encrypted memos. Later: share link with key in URL fragment |
-| Spaces shared with others | Members have no key | Out of scope for v1 (needs per-space keys) |
-| AI features, MCP, webhooks, email content | Server cannot read | Disabled for encrypted memos |
-| Link previews, mentions, EXIF, media metadata | Server cannot read | Client-side or dropped |
-| Server-side export | Would export ciphertext | Client-side export |
-| Third-party mobile apps on the API | See ciphertext | Only the web app (PWA) supports the vault |
+| 0 | Backup: in-app export now; skoop debug storage download is blocked (reported) | You hold an export |
+| 1 | Firestore driver + Mongo filter renderer, `DRIVER=firestore` test suite green on Mongo, then on real Firestore | `go test ./store/...` green for 4 drivers |
+| 2 | skoop: add `firestore/mongodb`, grant `datastore.user` + `datastore.indexAdmin` with the IAM condition, build image from this repo, migration job, switch, drop the FUSE mount, GCS attachment provider | Live site on Firestore with your data |
+| 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Server tests cover isolation |
+| 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | All personal memos are ciphertext in Firestore |
+| 5 | E2EE Spaces: account key pairs, Space keys, invite/accept/remove/rotate | Two test users share an encrypted Space |
+| 6 | Encrypted attachments and thumbnails, client export | No plaintext files in the bucket |
+| 7 | Hardening: CSP, auto-lock, recovery drill, fingerprints, restore drill | Checklist done |
 
-### Existing plaintext memos
+Phases 1 to 2 can ship before E2EE, so the database risk goes away first.
 
-After the vault is created, the client encrypts existing memos in batches and rewrites them, with a progress bar and
-resume. Old plaintext lingers in Litestream history until retention expires, so we shorten retention after migration.
+## 6. Remaining questions
 
-## 6. Phases
-
-0. **Hotfixes on today's deploy**: back up the current DB, release or discard the pending skoop changes. The live DB is
-   `memos_prod.db` (148 KiB) plus an active `memos_prod.db-wal` in the bucket, so a copy of only the main file is
-   incomplete. `skoop debug gcloud storage cat` cannot sign URLs yet (platform IAM gap, reported 2026-10-10), so for now
-   use the in-app memo export from Settings. The migration in phase 1 must checkpoint the WAL from inside the app.
-1. **Storage**: Litestream plus lease, GCS attachment provider, skoop Dockerfile, migrate data, drop the FUSE mount.
-2. **E2EE core**: keyring, unlock and lock UI, encrypted memo content, client-side tags, search, and filters.
-3. **Encrypted attachments** and client thumbnails.
-4. **Migration** of existing memos and UI gating of incompatible features.
-5. **Hardening**: crypto tests, CSP, auto-lock, recovery flow, restore drill.
-
-## 7. Open questions
-
-1. Option A (SQLite + Litestream) or Option B (Firestore driver)?
-2. Encrypt every memo always, or a per-memo lock toggle?
-3. Only you, or other users and shared spaces too?
-4. OK to lose public share links, AI, MCP, webhooks, RSS for encrypted memos?
-5. Tags plaintext (server tag tree works, tag names leak) or encrypted?
-6. Remember device, or passphrase on every visit?
-7. Do you use any Memos mobile or third-party app?
+1. Tags: encrypted with a blind index (recommended), or plaintext?
+2. Remember device for 30 days, or passphrase every visit?
+3. Is losing public share links acceptable for now?
+4. Do you, as admin, need to see a list of all users and Spaces (names only, encrypted titles would show as "locked")?
