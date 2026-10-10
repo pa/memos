@@ -779,3 +779,64 @@ export function extractMentionUsernames(source: string): string[] {
   collect(tree);
   return Array.from(new Set(usernames));
 }
+
+/** Searchable facts about memo markdown, computed the same way the server does for plaintext. */
+export interface MemoContentFacts {
+  /** Tags including their ancestors, e.g. "a/b" also yields "a". */
+  tags: string[];
+  hasLink: boolean;
+  hasCode: boolean;
+  hasTaskList: boolean;
+  hasIncompleteTasks: boolean;
+}
+
+/**
+ * Analyzes memo markdown in the browser. Encrypted memos need this because the
+ * server can no longer parse their content to build tags and filter flags.
+ */
+export function analyzeMemoContent(source: string): MemoContentFacts {
+  const tree = fromMarkdown(source, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
+  transformMemoSyntax(tree, source);
+
+  const facts: MemoContentFacts = { tags: [], hasLink: false, hasCode: false, hasTaskList: false, hasIncompleteTasks: false };
+  const tags = new Set<string>();
+  const collect = (node: UnistNode): void => {
+    switch (node.type) {
+      case "tagNode": {
+        const value = (node as TagNode).value;
+        let offset = value.indexOf("/");
+        while (offset >= 0) {
+          tags.add(value.slice(0, offset));
+          offset = value.indexOf("/", offset + 1);
+        }
+        tags.add(value);
+        break;
+      }
+      case "link":
+      case "linkReference":
+        facts.hasLink = true;
+        break;
+      case "code":
+      case "inlineCode":
+        facts.hasCode = true;
+        break;
+      case "listItem": {
+        const checked = (node as { checked?: boolean | null }).checked;
+        if (checked === true || checked === false) {
+          facts.hasTaskList = true;
+          if (checked === false) facts.hasIncompleteTasks = true;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    if (isParentNode(node)) node.children.forEach(collect);
+  };
+  collect(tree);
+  facts.tags = Array.from(tags);
+  return facts;
+}

@@ -27,6 +27,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("@/contexts/InstanceContext", () => ({
   useInstance: () => ({ profile: instanceState }),
+  useIsRequireE2ee: () => false,
 }));
 
 vi.mock("@/contexts/SpaceContext", () => ({

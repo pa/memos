@@ -72,6 +72,7 @@ func (s *APIService) GetInstanceProfile(ctx context.Context, _ *apipb.GetInstanc
 		AccessMode:      convertInstanceAccessModeFromStore(accessSetting.AccessMode),
 		Challenge:       s.challengeProfile(),
 		PrivateInstance: s.Store.IsPrivateInstance(),
+		RequireE2Ee:     s.Store.RequiresEncryptedContent(),
 	}
 	return instanceProfile, nil
 }

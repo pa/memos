@@ -3909,6 +3909,11 @@ components:
                     description: |-
                         Whether the instance runs as a private instance: sign-up requires an invite link, memos are limited to
                          PRIVATE and SPACE, and public share links are disabled.
+                requireE2ee:
+                    type: boolean
+                    description: |-
+                        Whether memo content must be end-to-end encrypted. The web app then asks
+                         every user to unlock (or set up) their passphrase before showing memos.
             description: InstanceProfile is the basic information about the instance.
         InstanceProfile_Challenge:
             type: object

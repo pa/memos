@@ -350,8 +350,11 @@ type InstanceProfile struct {
 	// Whether the instance runs as a private instance: sign-up requires an invite link, memos are limited to
 	// PRIVATE and SPACE, and public share links are disabled.
 	PrivateInstance bool `protobuf:"varint,9,opt,name=private_instance,json=privateInstance,proto3" json:"private_instance,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Whether memo content must be end-to-end encrypted. The web app then asks
+	// every user to unlock (or set up) their passphrase before showing memos.
+	RequireE2Ee   bool `protobuf:"varint,10,opt,name=require_e2ee,json=requireE2ee,proto3" json:"require_e2ee,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InstanceProfile) Reset() {
@@ -443,6 +446,13 @@ func (x *InstanceProfile) GetChallenge() *InstanceProfile_Challenge {
 func (x *InstanceProfile) GetPrivateInstance() bool {
 	if x != nil {
 		return x.PrivateInstance
+	}
+	return false
+}
+
+func (x *InstanceProfile) GetRequireE2Ee() bool {
+	if x != nil {
+		return x.RequireE2Ee
 	}
 	return false
 }
@@ -2387,7 +2397,7 @@ var File_api_instance_service_proto protoreflect.FileDescriptor
 
 const file_api_instance_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1aapi/instance_service.proto\x12\tmemos.api\x1a\x16api/user_service.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/type/color.proto\"\xb5\x03\n" +
+	"\x1aapi/instance_service.proto\x12\tmemos.api\x1a\x16api/user_service.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/type/color.proto\"\xd8\x03\n" +
 	"\x0fInstanceProfile\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12\x16\n" +
 	"\x06commit\x18\x02 \x01(\tR\x06commit\x12\x12\n" +
@@ -2399,7 +2409,9 @@ const file_api_instance_service_proto_rawDesc = "" +
 	"needsSetup\x12%\n" +
 	"\x05admin\x18\a \x01(\v2\x0f.memos.api.UserR\x05admin\x12B\n" +
 	"\tchallenge\x18\b \x01(\v2$.memos.api.InstanceProfile.ChallengeR\tchallenge\x12)\n" +
-	"\x10private_instance\x18\t \x01(\bR\x0fprivateInstance\x1aB\n" +
+	"\x10private_instance\x18\t \x01(\bR\x0fprivateInstance\x12!\n" +
+	"\frequire_e2ee\x18\n" +
+	" \x01(\bR\vrequireE2ee\x1aB\n" +
 	"\tChallenge\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x19\n" +
 	"\bsite_key\x18\x02 \x01(\tR\asiteKey\"\x1b\n" +

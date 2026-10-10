@@ -2,6 +2,7 @@ import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { Code, ConnectError, createClient, type Interceptor } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { getAccessToken, hasStoredToken, isTokenExpired, REQUEST_TOKEN_EXPIRY_BUFFER_MS, setAccessToken } from "./auth-state";
+import { e2eeInterceptor, setTagDictionaryPersister } from "./crypto/transport";
 import { AIService } from "./types/proto/api/ai_service_pb";
 import { AttachmentService } from "./types/proto/api/attachment_service_pb";
 import { AuthService } from "./types/proto/api/auth_service_pb";
@@ -185,13 +186,18 @@ const transport = createConnectTransport({
   baseUrl: window.location.origin,
   useBinaryFormat: true,
   fetch: fetchWithCredentials,
-  interceptors: [authInterceptor],
+  // e2eeInterceptor runs innermost so retries after a token refresh reuse the
+  // already sealed request, and responses are decrypted before callers see them.
+  interceptors: [authInterceptor, e2eeInterceptor],
 });
 
 // Core service clients
 export const instanceServiceClient = createClient(InstanceService, transport);
 export const authServiceClient = createClient(AuthService, transport);
 export const userServiceClient = createClient(UserService, transport);
+setTagDictionaryPersister((request) =>
+  userServiceClient.updateUserSetting(request as Parameters<typeof userServiceClient.updateUserSetting>[0]),
+);
 
 // Content service clients
 export const memoServiceClient = createClient(MemoService, transport);

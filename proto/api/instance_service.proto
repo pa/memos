@@ -114,6 +114,10 @@ message InstanceProfile {
   // Whether the instance runs as a private instance: sign-up requires an invite link, memos are limited to
   // PRIVATE and SPACE, and public share links are disabled.
   bool private_instance = 9;
+
+  // Whether memo content must be end-to-end encrypted. The web app then asks
+  // every user to unlock (or set up) their passphrase before showing memos.
+  bool require_e2ee = 10;
 }
 
 // Request message for InstanceService.GetInstanceProfile.

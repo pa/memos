@@ -346,6 +346,29 @@
   "router": {
     "back-to-top": "Back to Top"
   },
+  "e2ee": {
+    "confirm-passphrase": "Repeat passphrase",
+    "continue": "Continue",
+    "create": "Create passphrase",
+    "locked-chip": "Locked",
+    "mismatch": "The passphrases do not match.",
+    "passphrase": "Passphrase",
+    "recover-description": "Enter your recovery key and choose a new passphrase. You will get a new recovery key.",
+    "recovery-chip": "Save this now",
+    "recovery-confirm": "I saved my recovery key somewhere safe.",
+    "recovery-description": "This key is the only way back in if you forget your passphrase. It is shown once. Nobody, including the admin, can recover your notes without it.",
+    "recovery-key": "Recovery key",
+    "recovery-title": "Your recovery key",
+    "setup-chip": "End-to-end encryption",
+    "setup-description": "Your notes are encrypted on this device before they are saved. Choose a passphrase only you know. It is never sent to the server.",
+    "setup-title": "Create your passphrase",
+    "too-short": "Use at least {{count}} characters.",
+    "unlock": "Unlock",
+    "unlock-description": "Enter your passphrase to decrypt your notes on this device.",
+    "unlock-title": "Unlock your notes",
+    "use-passphrase": "Use my passphrase instead",
+    "use-recovery-key": "Forgot your passphrase? Use your recovery key"
+  },
   "setting": {
     "access-token": {
       "access-token-copied-to-clipboard": "Access token copied to clipboard",

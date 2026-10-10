@@ -286,3 +286,8 @@ export function useInstance() {
 export function useIsPrivateInstance(): boolean {
   return useContext(InstanceContext)?.profile?.privateInstance ?? false;
 }
+
+/** Whether memo content must be end-to-end encrypted. Safe outside the provider. */
+export function useIsRequireE2ee(): boolean {
+  return useContext(InstanceContext)?.profile?.requireE2ee ?? false;
+}

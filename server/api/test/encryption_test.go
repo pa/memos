@@ -157,3 +157,18 @@ func TestEncryptedMemoContent(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, memopayload.IsEncryptedContent(stored.Content))
 }
+
+func TestFilterAcceptsBareTrue(t *testing.T) {
+	ctx := context.Background()
+	ts := NewTestService(t)
+	defer ts.Cleanup()
+	user, err := ts.CreateRegularUser(ctx, "filter-true")
+	require.NoError(t, err)
+	userCtx := ts.CreateUserContext(ctx, user.ID)
+	_, err = ts.Service.CreateMemo(userCtx, &apipb.CreateMemoRequest{Memo: &apipb.Memo{Content: "x", Visibility: apipb.Visibility_PRIVATE}})
+	require.NoError(t, err)
+	// The web client replaces content searches with `true` before sending.
+	list, err := ts.Service.ListMemos(userCtx, &apipb.ListMemosRequest{Filter: "(true) && (true)"})
+	require.NoError(t, err)
+	require.Len(t, list.Memos, 1)
+}

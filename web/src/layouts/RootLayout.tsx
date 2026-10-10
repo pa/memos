@@ -9,6 +9,7 @@ import AppSidebar, {
   SidebarResizeHandle,
   useSidebarWidth,
 } from "@/components/AppSidebar";
+import EncryptionGate from "@/components/EncryptionGate";
 import { AppSidebarProvider } from "@/contexts/AppSidebarContext";
 import { GlobalMemoEditorProvider } from "@/contexts/GlobalMemoEditorContext";
 import { useInstance } from "@/contexts/InstanceContext";
@@ -110,15 +111,17 @@ const RootLayoutContent = () => {
 };
 
 const RootLayout = () => (
-  <SpaceProvider>
-    <MemoFilterProvider>
-      <AppSidebarProvider>
-        <GlobalMemoEditorProvider>
-          <RootLayoutContent />
-        </GlobalMemoEditorProvider>
-      </AppSidebarProvider>
-    </MemoFilterProvider>
-  </SpaceProvider>
+  <EncryptionGate>
+    <SpaceProvider>
+      <MemoFilterProvider>
+        <AppSidebarProvider>
+          <GlobalMemoEditorProvider>
+            <RootLayoutContent />
+          </GlobalMemoEditorProvider>
+        </AppSidebarProvider>
+      </MemoFilterProvider>
+    </SpaceProvider>
+  </EncryptionGate>
 );
 
 export default RootLayout;
