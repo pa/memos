@@ -98,6 +98,21 @@ None. Decided 2026-10-10: start fresh on Firestore. The old SQLite files stay un
 
 ## 3. Users, Spaces, and admin isolation
 
+As built (2026-10-10):
+
+- The admin content bypass is removed for every instance, not only private ones: `core/access` no longer consults the
+  role, and the store's `MemoActorState.Admin` is always false, so every driver applies author and membership rules to
+  admins too.
+- `--private-instance` / `MEMOS_PRIVATE_INSTANCE` turns on the rest: open registration and anonymous access are forced
+  off regardless of stored settings, `PUBLIC`/`PROTECTED` are rejected (create, update, default setting) and narrowed on
+  import, existing ones are narrowed to `PRIVATE` at startup, share links cannot be created and old ones stop resolving.
+  The proto enum values stay, so upstream clients keep compiling.
+- Invites are stateless signed tokens (`CreateUserInvite`, admin only): HS256 with the instance secret, bound to one
+  username, at most 30 days (default 72 hours), never grant admin. Reuse is impossible because the username then
+  exists. They cannot be revoked before expiry; rotating the instance secret revokes all.
+
+Original design:
+
 Today's model (from `docs/design/multi-spaces.md` and `core/access`):
 
 - Spaces, members with `ADMIN`/`USER` roles, and invite then accept already exist.
@@ -245,8 +260,8 @@ in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps key
 | --- | --- | --- |
 | 0 | Backup: skipped, starting fresh | Done |
 | 1 | Firestore driver + Mongo filter renderer, `DRIVER=firestore` test suite green on Mongo, then on real Firestore | Done on Mongo; real Firestore pending |
-| 2 | skoop: add `firestore/mongodb`, grants, build image from this repo, switch, drop the FUSE mount, GCS attachment provider | Live on Firestore 2026-10-10; GCS attachment provider pending |
-| 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Server tests cover isolation |
+| 2 | skoop: add `firestore/mongodb`, grants, build image from this repo, switch, drop the FUSE mount, GCS attachment provider | Done 2026-10-10. GCS storage uses the service account (`MEMOS_GCS_BUCKET`), no keys |
+| 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Done 2026-10-10 behind `MEMOS_PRIVATE_INSTANCE=true`; server tests cover isolation |
 | 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | All personal memos are ciphertext in Firestore |
 | 5 | E2EE Spaces: user key pairs, Space key sealed per member on invite, move memo in/out re-encrypts, rotate on removal, safety codes | Two test users share an encrypted Space with no shared passphrase; a third user and the instance admin see only ciphertext |
 | 6 | Encrypted attachments and thumbnails, client export | No plaintext files in the bucket |
