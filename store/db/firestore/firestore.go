@@ -196,9 +196,10 @@ func (*DB) GetDatabaseSize(context.Context) (int64, error) {
 	return -1, nil
 }
 
-// InitializeSchema creates the indexes. Called by the migrator for a fresh
-// database instead of executing LATEST.sql.
-func (d *DB) InitializeSchema(context.Context) error {
+// InitializeSchema prepares a fresh database. Collections are created on first
+// write and query indexes in the background by NewDB, so there is nothing to
+// do. The migrator calls it instead of executing LATEST.sql.
+func (*DB) InitializeSchema(context.Context) error {
 	return nil
 }
 
