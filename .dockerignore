@@ -8,14 +8,19 @@ coverage.out
 /.pnpm-store/
 /.worktrees/
 
-# Not used by the image build
-/web/
+# Not used by the image build. The web source stays in the context because the
+# root Dockerfile (the skoop image) builds it; only its dependencies and build
+# output are excluded. server/frontend/dist stays: scripts/Dockerfile embeds a
+# prebuilt copy, and the root Dockerfile overwrites it.
+/web/node_modules/
+/web/dist/
 /docs/
 /.github/
 *.md
 /.gitignore
 /.dockerignore
 /.golangci.yaml
+/.skoop/
 
 # Local metadata and secrets
 /.git/
