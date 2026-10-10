@@ -120,38 +120,61 @@ limit of any browser-based E2EE app.
 
 ### Keys
 
-Two kinds of passphrase, matching how people already think about it:
+Requirement (2026-10-10): every user has exactly one passphrase, and no passphrase is ever shared, typed by someone
+else, or sent to the server. Team sharing must still work. Recommended design: automatic key exchange (Option B below).
 
-| Passphrase | Who knows it | Unlocks |
-| --- | --- | --- |
-| Personal passphrase | One user only. Never shared, never sent to the server | That user's private memos, plus their saved copies of Space keys |
-| Space passphrase | Every member of one Space (team). Set by the Space admin, shared with members out of band (in person, Signal) | That Space's shared memos only |
+#### Option A, shared Space passphrase (rejected)
+
+The Space owner sets a second passphrase and hands it to members. Rejected because it is a shared secret: it has to be
+passed around, it leaks when anyone leaks it, and it must be re-shared after each removal.
+
+#### Option B, automatic key exchange (recommended)
+
+Keys never leave the browser unencrypted. Each user has one passphrase.
 
 Per user (hopnote design, its crypto suite passes 14 of 14):
 
-- Personal content key `PK` (random 256-bit) encrypts every memo that is not shared to a Space.
-- Personal passphrase -> Argon2id (64 MiB, t=3) -> key that wraps `PK`. A recovery key, shown once, wraps it too.
-- Stored as `UserSetting ENCRYPTION_KEYRING` (salt, KDF parameters, wrapped keys only).
+- Personal content key `PK` (random 256-bit) encrypts memos not shared to a Space.
+- An X25519 key pair (Web Crypto). The public key is like an open padlock: anyone may use it to lock something for this
+  user. The private key is the only key that opens it.
+- Passphrase -> Argon2id (64 MiB, t=3) -> key that wraps `PK` and the private key. A recovery key, shown once, wraps
+  them too. Stored as `UserSetting ENCRYPTION_KEYRING`. The public key is stored in the clear so teammates can use it.
 
 Per Space:
 
-- Space key `SK` (random 256-bit), wrapped by a key derived from the Space passphrase (Argon2id, own salt). The wrapped
-  `SK` and salt are stored on the Space (new `space.payload` fields).
-- Joining: the user accepts the invite (existing flow), then types the Space passphrase once. The browser unwraps `SK`,
-  then re-wraps it with the user's own `PK` and saves that copy on their membership (`space_member` gains a
-  `wrapped_space_key` field). After that the personal passphrase alone opens everything, and the Space passphrase is not
-  needed again on that account.
-- Wrong Space passphrase: AES-GCM authentication fails, so the browser knows at once without asking the server.
-- Remove a member: the Space admin sets a new Space passphrase. The browser creates a new `SK` (next epoch), and the
-  remaining members type the new passphrase once. New memos use the new key. Old memos stay on the old epoch unless the
-  admin runs "re-encrypt", because the removed member may already hold copies.
-- Change the Space passphrase without removing anyone: only re-wraps the same `SK`, no memo is touched, members are not
-  prompted.
-- The instance admin is not a member of other people's Spaces and never learns a Space passphrase, so cannot read them.
+- Space key `SK` (random 256-bit), created in the owner's browser when the Space is created.
+- For each member, the browser locks `SK` with that member's public key (X25519 + HKDF + AES-GCM, an ECIES-style seal)
+  and saves the result on the membership. `space_member` today is `(space_id, user_id, status, role)`, so it gains a
+  `sealed_space_key` field (new column in each SQL driver's migration plus `LATEST.sql`, plain field in Firestore).
+- Invite: when a Space admin invites someone, the admin's browser seals `SK` to the invitee's public key. The invitee
+  accepts, signs in with their own passphrase, and their browser opens `SK` with their private key. Nobody types anything
+  extra.
+- An invitee who has not set up encryption yet has no public key. The invite stays pending until they do, then any Space
+  admin's browser finishes the seal automatically the next time it is open.
+- Remove a member: the admin's browser creates a new `SK` (next epoch) and seals it to the remaining members. New memos use
+  it. Old memos stay on the old epoch unless the admin chooses "re-encrypt history", because the removed member may
+  already have read them.
+- The instance admin is not a member of other people's Spaces, so no `SK` is ever sealed to them and they read nothing.
 
-Compared with automatic key exchange (public key per user, Space key sealed to each member): the passphrase model needs no
-public keys and no fingerprint checks, and is easier to reason about. The trade-off is that the admin must hand the Space
-passphrase to each new member and again after a removal. Automatic exchange can be added later without re-encrypting.
+What each party can see:
+
+| Who | Personal memos of Alice | Memos in Alice's team Space |
+| --- | --- | --- |
+| Alice | Yes (her passphrase) | Yes (her passphrase opens her private key, which opens `SK`) |
+| Bob, member of the Space | No | Yes (his own passphrase, same chain) |
+| Carol, not a member | No | No |
+| Instance admin, server, GCP | No | No |
+
+Alice's passphrase is never shown to, typed by, or derivable by Bob. Bob only ever receives `SK` locked to his own key.
+
+Proof of concept (2026-10-10, standard Web Crypto X25519 + HKDF + AES-GCM, Node 26): Alice sealed `SK` using only Bob's
+public key, Bob opened it with his private key and read a memo encrypted with `SK`, Carol's private key failed to open
+it, and replaying the sealed key into another Space was rejected by the AAD binding.
+
+Trust caveat: a malicious server could hand Alice a fake public key for Bob and read what she seals to it. Defense: each
+user has a short safety code (a fingerprint of their public key) on their profile. Teammates can compare it once, in
+person or by chat, and the app warns if a teammate's key ever changes. This is the same model Signal and WhatsApp use, and
+it is optional for a small trusted team.
 
 ### Sharing a memo with the team
 
@@ -196,8 +219,8 @@ passphrase to each new member and again after a removal. Automatic exchange can 
 
 ### Unlock UX
 
-Sign in with password, then enter the personal passphrase (first time: create it, save recovery key). Opening a Space for
-the first time asks for that Space's passphrase once. Option to remember the device for 30 days as a non-extractable key
+Sign in with password, then enter your one passphrase (first time: create it, save recovery key). Spaces open
+automatically, there is no extra passphrase. Option to remember the device for 30 days as a non-extractable key
 in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps keys only.
 
 ## 5. Phases
@@ -209,7 +232,7 @@ in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps key
 | 2 | skoop: add `firestore/mongodb`, grant `datastore.user` + `datastore.indexAdmin` with the IAM condition, build image from this repo, migration job, switch, drop the FUSE mount, GCS attachment provider | Live site on Firestore with your data |
 | 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Server tests cover isolation |
 | 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | All personal memos are ciphertext in Firestore |
-| 5 | E2EE Spaces: Space passphrase and key, join with passphrase, move memo in/out re-encrypts, rotate on member removal | Two test users share an encrypted Space; a third user and the instance admin see only ciphertext |
+| 5 | E2EE Spaces: user key pairs, Space key sealed per member on invite, move memo in/out re-encrypts, rotate on removal, safety codes | Two test users share an encrypted Space with no shared passphrase; a third user and the instance admin see only ciphertext |
 | 6 | Encrypted attachments and thumbnails, client export | No plaintext files in the bucket |
 | 7 | Hardening: CSP, auto-lock, recovery drill, restore drill | Checklist done |
 
