@@ -255,6 +255,12 @@ key). Keys live in memory only: a browser or app restart locks, and so do 30 min
 same user share keys over a same-origin BroadcastChannel, so a new tab does not ask again. Using the recovery key sets
 a new passphrase and issues a new recovery key. "Remember this device" was not built, by choice.
 
+Revised (2026-10-10, lock options): reloads no longer lock. After unlock the keys are sealed with a non-extractable
+AES-GCM device key kept in IndexedDB (scripts can use it but never read it) and stored in sessionStorage, so they
+survive reloads but not a browser restart. Settings > Preferences > Encryption picks the policy per device: on browser
+restart (default), after 15 minutes, 1 hour or 4 hours idle, or never (sealed copy kept in localStorage instead).
+"Lock now" and sign-out wipe the sealed copy in every tab. Code: `web/src/crypto/session.ts`.
+
 As built, memo encryption details:
 
 - Content is `memos-e2ee:v1:{k, iv, ct, t, p}`. `k` is the key id (`pk`, later `sk:<space>:<epoch>`), `t` blind tag
