@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/usememos/memos/core/access"
+	"github.com/usememos/memos/core/memopayload"
 	"github.com/usememos/memos/markdown"
 	apipb "github.com/usememos/memos/proto/gen/api"
 	storepb "github.com/usememos/memos/proto/gen/store"
@@ -386,6 +387,11 @@ func (s *APIService) resolveMemoAttachmentReferences(content string, attachments
 }
 
 func (s *APIService) extractManagedAttachmentReferences(content string) ([]markdown.ManagedAttachmentReference, error) {
+	// Encrypted content cannot be parsed; image references live inside it and
+	// the attachments are bound explicitly instead.
+	if memopayload.IsEncryptedContent(content) {
+		return nil, nil
+	}
 	data, err := s.MarkdownService.ExtractAll([]byte(content))
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid markdown content: %v", err)

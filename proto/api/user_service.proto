@@ -515,6 +515,9 @@ message UserSetting {
 
     // The value of the TAGS setting.
     TagsSetting tags_setting = 4;
+
+    // The value of the ENCRYPTION setting.
+    EncryptionSetting encryption_setting = 5;
   }
 
   // Key identifies a user setting.
@@ -526,6 +529,8 @@ message UserSetting {
     WEBHOOKS = 4;
     // Per-user tag metadata.
     TAGS = 5;
+    // End-to-end encryption material. Readable and writable only by the user.
+    ENCRYPTION = 6;
   }
 
   // GeneralSetting holds general user preferences.
@@ -557,6 +562,19 @@ message UserSetting {
     // Optional. Map of tag name pattern to tag metadata. Each key is treated as
     // an anchored regular expression (^pattern$).
     map<string, TagMetadata> tags = 1 [(google.api.field_behavior) = OPTIONAL];
+  }
+
+  // EncryptionSetting holds end-to-end encryption material produced and sealed
+  // by the client. The server stores it without being able to open it.
+  message EncryptionSetting {
+    // Opaque JSON keyring sealed with the user's passphrase and recovery key.
+    string keyring = 1;
+
+    // Base64 X25519 public key. Immutable once set.
+    string public_key = 2;
+
+    // Opaque sealed map from blind tag index to tag name.
+    string tag_dictionary = 3;
   }
 
   // TagMetadata holds user-specific display rules for a tag.

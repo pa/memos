@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/usememos/memos/core/access"
+	"github.com/usememos/memos/core/memopayload"
 	"github.com/usememos/memos/internal/webhook"
 	apipb "github.com/usememos/memos/proto/gen/api"
 	storepb "github.com/usememos/memos/proto/gen/store"
@@ -130,6 +131,10 @@ func newMemoWebhookRequest(hook *storepb.WebhooksUserSetting_Webhook, activityTy
 }
 
 func (s *APIService) getMemoContentSnippet(content string) (string, error) {
+	// The server cannot read encrypted content; the client builds snippets.
+	if memopayload.IsEncryptedContent(content) {
+		return "", nil
+	}
 	// Use goldmark service for snippet generation
 	snippet, err := s.MarkdownService.GenerateSnippet([]byte(content), 64)
 	if err != nil {

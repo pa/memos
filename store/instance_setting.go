@@ -272,6 +272,19 @@ func (s *Store) IsPrivateInstance() bool {
 	return s.profile != nil && s.profile.PrivateInstance
 }
 
+// RequiresEncryptedContent reports whether memo content must be an end-to-end
+// encrypted envelope.
+func (s *Store) RequiresEncryptedContent() bool {
+	return s.profile != nil && s.profile.RequireE2EE
+}
+
+// SetRequireE2EE switches the encrypted-content requirement. Tests only.
+func (s *Store) SetRequireE2EE(enabled bool) {
+	if s.profile != nil {
+		s.profile.RequireE2EE = enabled
+	}
+}
+
 // SetPrivateInstance switches private-instance mode at runtime. Production
 // sets it once from the profile at startup; tests use this to exercise both
 // modes against one store.

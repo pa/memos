@@ -43,6 +43,9 @@ type Profile struct {
 	// sign-up needs an invite link, content is visible only to its author or
 	// Space members, anonymous access and public share links are off.
 	PrivateInstance bool
+	// RequireE2EE rejects memo content that is not an end-to-end encrypted
+	// envelope, so the server never stores plaintext memos.
+	RequireE2EE bool
 }
 
 func checkDataDir(dataDir string) (string, error) {

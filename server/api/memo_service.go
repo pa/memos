@@ -382,12 +382,8 @@ func (s *APIService) UpdateMemo(ctx context.Context, request *apipb.UpdateMemoRe
 		}
 		if path == "content" {
 			contentUpdated = true
-			contentLengthLimit, err := s.getContentLengthLimit(ctx)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to get content length limit")
-			}
-			if len(request.Memo.Content) > contentLengthLimit {
-				return nil, status.Errorf(codes.InvalidArgument, "content too long (max %d characters)", contentLengthLimit)
+			if err := s.validateMemoContent(ctx, request.Memo.Content); err != nil {
+				return nil, err
 			}
 			nextMemo.Content = request.Memo.Content
 			if err := memopayload.RebuildMemoPayload(ctx, &nextMemo, s.MarkdownService); err != nil {

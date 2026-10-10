@@ -5627,7 +5627,26 @@ components:
                     allOf:
                         - $ref: '#/components/schemas/UserSetting_TagsSetting'
                     description: The value of the TAGS setting.
+                encryptionSetting:
+                    allOf:
+                        - $ref: '#/components/schemas/UserSetting_EncryptionSetting'
+                    description: The value of the ENCRYPTION setting.
             description: UserSetting is one group of a user's preferences, identified by its key.
+        UserSetting_EncryptionSetting:
+            type: object
+            properties:
+                keyring:
+                    type: string
+                    description: Opaque JSON keyring sealed with the user's passphrase and recovery key.
+                publicKey:
+                    type: string
+                    description: Base64 X25519 public key. Immutable once set.
+                tagDictionary:
+                    type: string
+                    description: Opaque sealed map from blind tag index to tag name.
+            description: |-
+                EncryptionSetting holds end-to-end encryption material produced and sealed
+                 by the client. The server stores it without being able to open it.
         UserSetting_GeneralSetting:
             type: object
             properties:

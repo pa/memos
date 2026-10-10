@@ -22,6 +22,8 @@ message UserSetting {
     PERSONAL_ACCESS_TOKENS = 7;
     // Per-user tag metadata.
     TAGS = 8;
+    // End-to-end encryption keyring and public key.
+    ENCRYPTION = 9;
   }
 
   int32 user_id = 1;
@@ -34,7 +36,20 @@ message UserSetting {
     RefreshTokensUserSetting refresh_tokens = 8;
     PersonalAccessTokensUserSetting personal_access_tokens = 9;
     TagsUserSetting tags = 10;
+    EncryptionUserSetting encryption = 11;
   }
+}
+
+// EncryptionUserSetting holds the user's end-to-end encryption material. The
+// server cannot open any of it: the keyring is sealed in the browser with the
+// user's passphrase and recovery key.
+message EncryptionUserSetting {
+  // Opaque JSON keyring produced by the web client.
+  string keyring = 1;
+  // Base64 X25519 public key. Teammates seal Space keys to it. Never changes once set.
+  string public_key = 2;
+  // Opaque sealed map from blind tag index to tag name, so the client can label tag counts.
+  string tag_dictionary = 3;
 }
 
 message GeneralUserSetting {

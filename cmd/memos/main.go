@@ -66,6 +66,7 @@ func init() {
 	rootCmd.Flags().String("instance-url", "", "canonical external URL of the Memos instance")
 	rootCmd.Flags().String("gcs-bucket", "", "Google Cloud Storage bucket used for new attachments, with ambient Google credentials")
 	rootCmd.Flags().Bool("private-instance", false, "invite-only instance: only private and Space memos, no anonymous access or public share links")
+	rootCmd.Flags().Bool("require-e2ee", false, "accept only end-to-end encrypted memo content")
 	rootCmd.Flags().Bool("allow-private-webhooks", false, "allow webhooks to access any private/reserved IP address")
 	rootCmd.Flags().StringSlice("webhook-private-network-allowlist", nil, "private webhook destinations to allow (exact hostname, IP, or CIDR)")
 	rootCmd.Flags().String("log-level", "info", "log verbosity level (debug, info, warn, error)")
@@ -86,6 +87,7 @@ func init() {
 		"instance-url",
 		"gcs-bucket",
 		"private-instance",
+		"require-e2ee",
 		"allow-private-webhooks",
 		"webhook-private-network-allowlist",
 		"log-level",
@@ -125,6 +127,7 @@ func runServer() error {
 		RateLimit:       viper.GetBool("rate-limit"),
 		TrustedProxies:  viper.GetStringSlice("trusted-proxies"),
 		PrivateInstance: viper.GetBool("private-instance"),
+		RequireE2EE:     viper.GetBool("require-e2ee"),
 		Version:         version.GetCurrentVersion(),
 		Commit:          version.Commit,
 	}

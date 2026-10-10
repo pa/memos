@@ -157,6 +157,15 @@ func (s *APIService) UpdateUserSetting(ctx context.Context, request *apipb.Updat
 				TagsSetting: incomingTags,
 			},
 		}
+	case storepb.UserSetting_ENCRYPTION:
+		updated, err := s.mergeEncryptionSetting(ctx, userID, request.UserSetting.GetEncryptionSetting(), request.UpdateMask.Paths)
+		if err != nil {
+			return nil, err
+		}
+		updatedSetting = &apipb.UserSetting{
+			Name:  request.UserSetting.Name,
+			Value: &apipb.UserSetting_EncryptionSetting_{EncryptionSetting: updated},
+		}
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "setting type %s should not be updated via UpdateUserSetting", storeKey.String())
 	}

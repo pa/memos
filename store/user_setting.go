@@ -670,6 +670,12 @@ func convertUserSettingFromRaw(raw *UserSetting) (*storepb.UserSetting, error) {
 			return nil, err
 		}
 		userSetting.Value = &storepb.UserSetting_Webhooks{Webhooks: webhooksUserSetting}
+	case storepb.UserSetting_ENCRYPTION:
+		encryption := &storepb.EncryptionUserSetting{}
+		if err := protojsonUnmarshaler.Unmarshal([]byte(raw.Value), encryption); err != nil {
+			return nil, errors.Wrap(err, "unmarshal encryption user setting")
+		}
+		userSetting.Value = &storepb.UserSetting_Encryption{Encryption: encryption}
 	default:
 		return nil, nil
 	}
@@ -723,6 +729,12 @@ func convertUserSettingToRaw(userSetting *storepb.UserSetting) (*UserSetting, er
 		value, err := protojson.Marshal(webhooksUserSetting)
 		if err != nil {
 			return nil, err
+		}
+		raw.Value = string(value)
+	case storepb.UserSetting_ENCRYPTION:
+		value, err := protojson.Marshal(userSetting.GetEncryption())
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal encryption user setting")
 		}
 		raw.Value = string(value)
 	default:

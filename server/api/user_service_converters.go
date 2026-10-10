@@ -90,6 +90,8 @@ func convertSettingKeyToStore(key string) (storepb.UserSetting_Key, error) {
 		return storepb.UserSetting_WEBHOOKS, nil
 	case apipb.UserSetting_Key_name[int32(apipb.UserSetting_TAGS)]:
 		return storepb.UserSetting_TAGS, nil
+	case apipb.UserSetting_Key_name[int32(apipb.UserSetting_ENCRYPTION)]:
+		return storepb.UserSetting_ENCRYPTION, nil
 	default:
 		return storepb.UserSetting_KEY_UNSPECIFIED, errors.Errorf("unknown setting key: %s", key)
 	}
@@ -106,6 +108,8 @@ func convertSettingKeyFromStore(key storepb.UserSetting_Key) string {
 		return apipb.UserSetting_Key_name[int32(apipb.UserSetting_WEBHOOKS)]
 	case storepb.UserSetting_TAGS:
 		return apipb.UserSetting_Key_name[int32(apipb.UserSetting_TAGS)]
+	case storepb.UserSetting_ENCRYPTION:
+		return apipb.UserSetting_Key_name[int32(apipb.UserSetting_ENCRYPTION)]
 	default:
 		return "unknown"
 	}
@@ -171,6 +175,8 @@ func convertUserSettingFromStore(storeSetting *storepb.UserSetting, user *store.
 			setting.Value = &apipb.UserSetting_TagsSetting_{
 				TagsSetting: &apipb.UserSetting_TagsSetting{Tags: map[string]*apipb.UserSetting_TagMetadata{}},
 			}
+		case storepb.UserSetting_ENCRYPTION:
+			setting.Value = &apipb.UserSetting_EncryptionSetting_{EncryptionSetting: &apipb.UserSetting_EncryptionSetting{}}
 		default:
 			return nil
 		}
@@ -222,6 +228,13 @@ func convertUserSettingFromStore(storeSetting *storepb.UserSetting, user *store.
 		setting.Value = &apipb.UserSetting_TagsSetting_{
 			TagsSetting: convertUserTagsSettingFromStore(storeSetting.GetTags()),
 		}
+	case storepb.UserSetting_ENCRYPTION:
+		encryption := storeSetting.GetEncryption()
+		setting.Value = &apipb.UserSetting_EncryptionSetting_{EncryptionSetting: &apipb.UserSetting_EncryptionSetting{
+			Keyring:       encryption.GetKeyring(),
+			PublicKey:     encryption.GetPublicKey(),
+			TagDictionary: encryption.GetTagDictionary(),
+		}}
 	default:
 		return nil
 	}
@@ -277,6 +290,16 @@ func convertUserSettingToStore(apiSetting *apipb.UserSetting, userID int32, key 
 		} else {
 			return nil, errors.Errorf("tags setting is required")
 		}
+	case storepb.UserSetting_ENCRYPTION:
+		encryption := apiSetting.GetEncryptionSetting()
+		if encryption == nil {
+			return nil, errors.Errorf("encryption setting is required")
+		}
+		storeSetting.Value = &storepb.UserSetting_Encryption{Encryption: &storepb.EncryptionUserSetting{
+			Keyring:       encryption.Keyring,
+			PublicKey:     encryption.PublicKey,
+			TagDictionary: encryption.TagDictionary,
+		}}
 	default:
 		return nil, errors.Errorf("unsupported setting key: %v", key)
 	}

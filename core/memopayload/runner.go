@@ -76,6 +76,16 @@ func RebuildMemoPayload(_ context.Context, memo *store.Memo, markdownService mar
 		memo.Payload = &storepb.MemoPayload{}
 	}
 
+	// Encrypted content is opaque; its searchable index comes from the envelope.
+	if IsEncryptedContent(memo.Content) {
+		envelope, err := ParseEnvelope(memo.Content)
+		if err != nil {
+			return err
+		}
+		applyEnvelope(memo.Payload, envelope)
+		return nil
+	}
+
 	// Use goldmark service to extract all metadata in a single pass (more efficient)
 	data, err := markdownService.ExtractAll([]byte(memo.Content))
 	if err != nil {

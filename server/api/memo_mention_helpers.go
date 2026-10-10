@@ -7,13 +7,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/usememos/memos/core/access"
+	"github.com/usememos/memos/core/memopayload"
 	storepb "github.com/usememos/memos/proto/gen/store"
 	"github.com/usememos/memos/store"
 )
 
 func (s *APIService) resolveMentionTargets(ctx context.Context, content string) (map[int32]*store.User, error) {
 	targets := make(map[int32]*store.User)
-	if content == "" {
+	if content == "" || memopayload.IsEncryptedContent(content) {
 		return targets, nil
 	}
 
