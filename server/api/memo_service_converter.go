@@ -407,13 +407,17 @@ func convertVisibilityFromStore(visibility store.Visibility) apipb.Visibility {
 	}
 }
 
-func validateCreateMemoVisibility(visibility apipb.Visibility) (store.Visibility, error) {
+func validateCreateMemoVisibility(visibility apipb.Visibility, privateInstance bool) (store.Visibility, error) {
 	switch visibility {
 	case apipb.Visibility_VISIBILITY_UNSPECIFIED, apipb.Visibility_PRIVATE:
 		return store.Private, nil
-	case apipb.Visibility_PROTECTED:
-		return store.Protected, nil
-	case apipb.Visibility_PUBLIC:
+	case apipb.Visibility_PROTECTED, apipb.Visibility_PUBLIC:
+		if privateInstance {
+			return "", status.Errorf(codes.InvalidArgument, "this instance only allows PRIVATE and SPACE memos")
+		}
+		if visibility == apipb.Visibility_PROTECTED {
+			return store.Protected, nil
+		}
 		return store.Public, nil
 	case apipb.Visibility_SPACE:
 		return store.SpaceAudience, nil
@@ -422,9 +426,9 @@ func validateCreateMemoVisibility(visibility apipb.Visibility) (store.Visibility
 	}
 }
 
-func validateUpdateMemoVisibility(visibility apipb.Visibility) (store.Visibility, error) {
+func validateUpdateMemoVisibility(visibility apipb.Visibility, privateInstance bool) (store.Visibility, error) {
 	if visibility == apipb.Visibility_VISIBILITY_UNSPECIFIED {
 		return "", status.Errorf(codes.InvalidArgument, "visibility must be specified")
 	}
-	return validateCreateMemoVisibility(visibility)
+	return validateCreateMemoVisibility(visibility, privateInstance)
 }

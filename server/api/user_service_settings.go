@@ -104,7 +104,11 @@ func (s *APIService) UpdateUserSetting(ctx context.Context, request *apipb.Updat
 			switch field {
 			case "memo_visibility":
 				switch incomingGeneral.MemoVisibility {
-				case store.Private.String(), store.Protected.String(), store.Public.String():
+				case store.Private.String():
+				case store.Protected.String(), store.Public.String():
+					if s.Store.IsPrivateInstance() {
+						return nil, status.Errorf(codes.InvalidArgument, "memo_visibility must be PRIVATE on this instance")
+					}
 				default:
 					return nil, status.Errorf(codes.InvalidArgument, "memo_visibility must be PRIVATE, PROTECTED, or PUBLIC")
 				}

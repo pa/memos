@@ -369,6 +369,10 @@ func (i *memoImporter) buildMemo(record *memoexport.Memo, uid string, content []
 		i.warn(record.UID, "SPACE visibility needs a space; imported as PRIVATE")
 		memo.Visibility = store.Private
 	}
+	if i.service.Store.IsPrivateInstance() && (memo.Visibility == store.Public || memo.Visibility == store.Protected) {
+		i.warn(record.UID, string(memo.Visibility)+" is not allowed on this instance; imported as PRIVATE")
+		memo.Visibility = store.Private
+	}
 	if err := memopayload.RebuildMemoPayload(i.ctx, memo, i.service.MarkdownService); err != nil {
 		return nil, errors.Wrap(err, "failed to rebuild memo payload")
 	}

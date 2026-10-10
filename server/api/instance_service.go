@@ -63,14 +63,15 @@ func (s *APIService) GetInstanceProfile(ctx context.Context, _ *apipb.GetInstanc
 	}
 
 	instanceProfile := &apipb.InstanceProfile{
-		Version:     s.Profile.Version,
-		Demo:        s.Profile.Demo,
-		InstanceUrl: s.Profile.InstanceURL,
-		Admin:       admin, // for display only; may be nil even on a populated instance
-		Commit:      s.Profile.Commit,
-		NeedsSetup:  len(users) == 0,
-		AccessMode:  convertInstanceAccessModeFromStore(accessSetting.AccessMode),
-		Challenge:   s.challengeProfile(),
+		Version:         s.Profile.Version,
+		Demo:            s.Profile.Demo,
+		InstanceUrl:     s.Profile.InstanceURL,
+		Admin:           admin, // for display only; may be nil even on a populated instance
+		Commit:          s.Profile.Commit,
+		NeedsSetup:      len(users) == 0,
+		AccessMode:      convertInstanceAccessModeFromStore(accessSetting.AccessMode),
+		Challenge:       s.challengeProfile(),
+		PrivateInstance: s.Store.IsPrivateInstance(),
 	}
 	return instanceProfile, nil
 }

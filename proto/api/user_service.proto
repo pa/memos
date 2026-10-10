@@ -41,14 +41,25 @@ service UserService {
   }
 
   // CreateUser creates a user. The first user of an instance becomes an admin.
-  // Otherwise, unless an admin calls it, the instance must allow user
-  // registration and password sign-up, and the new user gets the USER role.
+  // Otherwise, unless an admin calls it, the caller must present a valid
+  // invite_token, or the instance must allow user registration and password
+  // sign-up; the new user gets the USER role.
   rpc CreateUser(CreateUserRequest) returns (User) {
     option (google.api.http) = {
       post: "/api/users"
       body: "user"
     };
     option (google.api.method_signature) = "user,user_id";
+  }
+
+  // CreateUserInvite creates a signed, expiring invite link for one username. Admin only.
+  // The invite works even when open registration is disabled and cannot be used
+  // once the username exists.
+  rpc CreateUserInvite(CreateUserInviteRequest) returns (CreateUserInviteResponse) {
+    option (google.api.http) = {
+      post: "/api/users:invite"
+      body: "*"
+    };
   }
 
   // UpdateUser updates a user. Users may update themselves; admins may update
@@ -425,6 +436,31 @@ message CreateUserRequest {
 
   // Optional. An idempotency token. Currently ignored.
   string request_id = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. An invite token from CreateUserInvite. It allows sign-up when
+  // open registration is disabled; user.username must match the invited name.
+  string invite_token = 5 [
+    (google.api.field_behavior) = OPTIONAL,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+}
+
+// Request message for UserService.CreateUserInvite.
+message CreateUserInviteRequest {
+  // Required. The username the invitee will sign up with.
+  string username = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional. How long the invite stays valid, in hours. Default 72, maximum 720.
+  int32 ttl_hours = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// Response message for UserService.CreateUserInvite.
+message CreateUserInviteResponse {
+  // The invite token. Share it with the invitee; it is shown only once.
+  string invite_token = 1;
+
+  // When the invite stops working.
+  google.protobuf.Timestamp expire_time = 2;
 }
 
 // Request message for UserService.UpdateUser.

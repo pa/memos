@@ -39,6 +39,10 @@ type Profile struct {
 	// TrustedProxies lists the proxies whose forwarding headers identify the
 	// client: CIDRs, addresses, or the keywords "private" and "none".
 	TrustedProxies []string
+	// PrivateInstance closes the instance to everyone but invited users:
+	// sign-up needs an invite link, content is visible only to its author or
+	// Space members, anonymous access and public share links are off.
+	PrivateInstance bool
 }
 
 func checkDataDir(dataDir string) (string, error) {

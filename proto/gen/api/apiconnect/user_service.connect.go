@@ -44,6 +44,9 @@ const (
 	UserServiceBatchGetUsersProcedure = "/memos.api.UserService/BatchGetUsers"
 	// UserServiceCreateUserProcedure is the fully-qualified name of the UserService's CreateUser RPC.
 	UserServiceCreateUserProcedure = "/memos.api.UserService/CreateUser"
+	// UserServiceCreateUserInviteProcedure is the fully-qualified name of the UserService's
+	// CreateUserInvite RPC.
+	UserServiceCreateUserInviteProcedure = "/memos.api.UserService/CreateUserInvite"
 	// UserServiceUpdateUserProcedure is the fully-qualified name of the UserService's UpdateUser RPC.
 	UserServiceUpdateUserProcedure = "/memos.api.UserService/UpdateUser"
 	// UserServiceDeleteUserProcedure is the fully-qualified name of the UserService's DeleteUser RPC.
@@ -138,9 +141,14 @@ type UserServiceClient interface {
 	// active user are omitted from the response.
 	BatchGetUsers(context.Context, *connect.Request[api.BatchGetUsersRequest]) (*connect.Response[api.BatchGetUsersResponse], error)
 	// CreateUser creates a user. The first user of an instance becomes an admin.
-	// Otherwise, unless an admin calls it, the instance must allow user
-	// registration and password sign-up, and the new user gets the USER role.
+	// Otherwise, unless an admin calls it, the caller must present a valid
+	// invite_token, or the instance must allow user registration and password
+	// sign-up; the new user gets the USER role.
 	CreateUser(context.Context, *connect.Request[api.CreateUserRequest]) (*connect.Response[api.User], error)
+	// CreateUserInvite creates a signed, expiring invite link for one username. Admin only.
+	// The invite works even when open registration is disabled and cannot be used
+	// once the username exists.
+	CreateUserInvite(context.Context, *connect.Request[api.CreateUserInviteRequest]) (*connect.Response[api.CreateUserInviteResponse], error)
 	// UpdateUser updates a user. Users may update themselves; admins may update
 	// anyone. Changing the password ends the user's other sessions.
 	UpdateUser(context.Context, *connect.Request[api.UpdateUserRequest]) (*connect.Response[api.User], error)
@@ -270,6 +278,12 @@ func NewUserServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+UserServiceCreateUserProcedure,
 			connect.WithSchema(userServiceMethods.ByName("CreateUser")),
+			connect.WithClientOptions(opts...),
+		),
+		createUserInvite: connect.NewClient[api.CreateUserInviteRequest, api.CreateUserInviteResponse](
+			httpClient,
+			baseURL+UserServiceCreateUserInviteProcedure,
+			connect.WithSchema(userServiceMethods.ByName("CreateUserInvite")),
 			connect.WithClientOptions(opts...),
 		),
 		updateUser: connect.NewClient[api.UpdateUserRequest, api.User](
@@ -455,6 +469,7 @@ type userServiceClient struct {
 	getUser                     *connect.Client[api.GetUserRequest, api.User]
 	batchGetUsers               *connect.Client[api.BatchGetUsersRequest, api.BatchGetUsersResponse]
 	createUser                  *connect.Client[api.CreateUserRequest, api.User]
+	createUserInvite            *connect.Client[api.CreateUserInviteRequest, api.CreateUserInviteResponse]
 	updateUser                  *connect.Client[api.UpdateUserRequest, api.User]
 	deleteUser                  *connect.Client[api.DeleteUserRequest, emptypb.Empty]
 	listUserSettings            *connect.Client[api.ListUserSettingsRequest, api.ListUserSettingsResponse]
@@ -504,6 +519,11 @@ func (c *userServiceClient) BatchGetUsers(ctx context.Context, req *connect.Requ
 // CreateUser calls memos.api.UserService.CreateUser.
 func (c *userServiceClient) CreateUser(ctx context.Context, req *connect.Request[api.CreateUserRequest]) (*connect.Response[api.User], error) {
 	return c.createUser.CallUnary(ctx, req)
+}
+
+// CreateUserInvite calls memos.api.UserService.CreateUserInvite.
+func (c *userServiceClient) CreateUserInvite(ctx context.Context, req *connect.Request[api.CreateUserInviteRequest]) (*connect.Response[api.CreateUserInviteResponse], error) {
+	return c.createUserInvite.CallUnary(ctx, req)
 }
 
 // UpdateUser calls memos.api.UserService.UpdateUser.
@@ -661,9 +681,14 @@ type UserServiceHandler interface {
 	// active user are omitted from the response.
 	BatchGetUsers(context.Context, *connect.Request[api.BatchGetUsersRequest]) (*connect.Response[api.BatchGetUsersResponse], error)
 	// CreateUser creates a user. The first user of an instance becomes an admin.
-	// Otherwise, unless an admin calls it, the instance must allow user
-	// registration and password sign-up, and the new user gets the USER role.
+	// Otherwise, unless an admin calls it, the caller must present a valid
+	// invite_token, or the instance must allow user registration and password
+	// sign-up; the new user gets the USER role.
 	CreateUser(context.Context, *connect.Request[api.CreateUserRequest]) (*connect.Response[api.User], error)
+	// CreateUserInvite creates a signed, expiring invite link for one username. Admin only.
+	// The invite works even when open registration is disabled and cannot be used
+	// once the username exists.
+	CreateUserInvite(context.Context, *connect.Request[api.CreateUserInviteRequest]) (*connect.Response[api.CreateUserInviteResponse], error)
 	// UpdateUser updates a user. Users may update themselves; admins may update
 	// anyone. Changing the password ends the user's other sessions.
 	UpdateUser(context.Context, *connect.Request[api.UpdateUserRequest]) (*connect.Response[api.User], error)
@@ -789,6 +814,12 @@ func NewUserServiceHandler(svc UserServiceHandler, opts ...connect.HandlerOption
 		UserServiceCreateUserProcedure,
 		svc.CreateUser,
 		connect.WithSchema(userServiceMethods.ByName("CreateUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userServiceCreateUserInviteHandler := connect.NewUnaryHandler(
+		UserServiceCreateUserInviteProcedure,
+		svc.CreateUserInvite,
+		connect.WithSchema(userServiceMethods.ByName("CreateUserInvite")),
 		connect.WithHandlerOptions(opts...),
 	)
 	userServiceUpdateUserHandler := connect.NewUnaryHandler(
@@ -975,6 +1006,8 @@ func NewUserServiceHandler(svc UserServiceHandler, opts ...connect.HandlerOption
 			userServiceBatchGetUsersHandler.ServeHTTP(w, r)
 		case UserServiceCreateUserProcedure:
 			userServiceCreateUserHandler.ServeHTTP(w, r)
+		case UserServiceCreateUserInviteProcedure:
+			userServiceCreateUserInviteHandler.ServeHTTP(w, r)
 		case UserServiceUpdateUserProcedure:
 			userServiceUpdateUserHandler.ServeHTTP(w, r)
 		case UserServiceDeleteUserProcedure:
@@ -1056,6 +1089,10 @@ func (UnimplementedUserServiceHandler) BatchGetUsers(context.Context, *connect.R
 
 func (UnimplementedUserServiceHandler) CreateUser(context.Context, *connect.Request[api.CreateUserRequest]) (*connect.Response[api.User], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.UserService.CreateUser is not implemented"))
+}
+
+func (UnimplementedUserServiceHandler) CreateUserInvite(context.Context, *connect.Request[api.CreateUserInviteRequest]) (*connect.Response[api.CreateUserInviteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("memos.api.UserService.CreateUserInvite is not implemented"))
 }
 
 func (UnimplementedUserServiceHandler) UpdateUser(context.Context, *connect.Request[api.UpdateUserRequest]) (*connect.Response[api.User], error) {

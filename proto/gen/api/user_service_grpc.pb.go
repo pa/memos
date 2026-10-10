@@ -25,6 +25,7 @@ const (
 	UserService_GetUser_FullMethodName                     = "/memos.api.UserService/GetUser"
 	UserService_BatchGetUsers_FullMethodName               = "/memos.api.UserService/BatchGetUsers"
 	UserService_CreateUser_FullMethodName                  = "/memos.api.UserService/CreateUser"
+	UserService_CreateUserInvite_FullMethodName            = "/memos.api.UserService/CreateUserInvite"
 	UserService_UpdateUser_FullMethodName                  = "/memos.api.UserService/UpdateUser"
 	UserService_DeleteUser_FullMethodName                  = "/memos.api.UserService/DeleteUser"
 	UserService_ListUserSettings_FullMethodName            = "/memos.api.UserService/ListUserSettings"
@@ -72,9 +73,14 @@ type UserServiceClient interface {
 	// active user are omitted from the response.
 	BatchGetUsers(ctx context.Context, in *BatchGetUsersRequest, opts ...grpc.CallOption) (*BatchGetUsersResponse, error)
 	// CreateUser creates a user. The first user of an instance becomes an admin.
-	// Otherwise, unless an admin calls it, the instance must allow user
-	// registration and password sign-up, and the new user gets the USER role.
+	// Otherwise, unless an admin calls it, the caller must present a valid
+	// invite_token, or the instance must allow user registration and password
+	// sign-up; the new user gets the USER role.
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*User, error)
+	// CreateUserInvite creates a signed, expiring invite link for one username. Admin only.
+	// The invite works even when open registration is disabled and cannot be used
+	// once the username exists.
+	CreateUserInvite(ctx context.Context, in *CreateUserInviteRequest, opts ...grpc.CallOption) (*CreateUserInviteResponse, error)
 	// UpdateUser updates a user. Users may update themselves; admins may update
 	// anyone. Changing the password ends the user's other sessions.
 	UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*User, error)
@@ -213,6 +219,16 @@ func (c *userServiceClient) CreateUser(ctx context.Context, in *CreateUserReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(User)
 	err := c.cc.Invoke(ctx, UserService_CreateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) CreateUserInvite(ctx context.Context, in *CreateUserInviteRequest, opts ...grpc.CallOption) (*CreateUserInviteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateUserInviteResponse)
+	err := c.cc.Invoke(ctx, UserService_CreateUserInvite_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -525,9 +541,14 @@ type UserServiceServer interface {
 	// active user are omitted from the response.
 	BatchGetUsers(context.Context, *BatchGetUsersRequest) (*BatchGetUsersResponse, error)
 	// CreateUser creates a user. The first user of an instance becomes an admin.
-	// Otherwise, unless an admin calls it, the instance must allow user
-	// registration and password sign-up, and the new user gets the USER role.
+	// Otherwise, unless an admin calls it, the caller must present a valid
+	// invite_token, or the instance must allow user registration and password
+	// sign-up; the new user gets the USER role.
 	CreateUser(context.Context, *CreateUserRequest) (*User, error)
+	// CreateUserInvite creates a signed, expiring invite link for one username. Admin only.
+	// The invite works even when open registration is disabled and cannot be used
+	// once the username exists.
+	CreateUserInvite(context.Context, *CreateUserInviteRequest) (*CreateUserInviteResponse, error)
 	// UpdateUser updates a user. Users may update themselves; admins may update
 	// anyone. Changing the password ends the user's other sessions.
 	UpdateUser(context.Context, *UpdateUserRequest) (*User, error)
@@ -643,6 +664,9 @@ func (UnimplementedUserServiceServer) BatchGetUsers(context.Context, *BatchGetUs
 }
 func (UnimplementedUserServiceServer) CreateUser(context.Context, *CreateUserRequest) (*User, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateUser not implemented")
+}
+func (UnimplementedUserServiceServer) CreateUserInvite(context.Context, *CreateUserInviteRequest) (*CreateUserInviteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUserInvite not implemented")
 }
 func (UnimplementedUserServiceServer) UpdateUser(context.Context, *UpdateUserRequest) (*User, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateUser not implemented")
@@ -820,6 +844,24 @@ func _UserService_CreateUser_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServiceServer).CreateUser(ctx, req.(*CreateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_CreateUserInvite_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserInviteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).CreateUserInvite(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_CreateUserInvite_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).CreateUserInvite(ctx, req.(*CreateUserInviteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1368,6 +1410,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateUser",
 			Handler:    _UserService_CreateUser_Handler,
+		},
+		{
+			MethodName: "CreateUserInvite",
+			Handler:    _UserService_CreateUserInvite_Handler,
 		},
 		{
 			MethodName: "UpdateUser",

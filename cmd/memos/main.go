@@ -65,6 +65,7 @@ func init() {
 	rootCmd.Flags().String("dsn", "", "database source name (DSN)")
 	rootCmd.Flags().String("instance-url", "", "canonical external URL of the Memos instance")
 	rootCmd.Flags().String("gcs-bucket", "", "Google Cloud Storage bucket used for new attachments, with ambient Google credentials")
+	rootCmd.Flags().Bool("private-instance", false, "invite-only instance: only private and Space memos, no anonymous access or public share links")
 	rootCmd.Flags().Bool("allow-private-webhooks", false, "allow webhooks to access any private/reserved IP address")
 	rootCmd.Flags().StringSlice("webhook-private-network-allowlist", nil, "private webhook destinations to allow (exact hostname, IP, or CIDR)")
 	rootCmd.Flags().String("log-level", "info", "log verbosity level (debug, info, warn, error)")
@@ -84,6 +85,7 @@ func init() {
 		"dsn",
 		"instance-url",
 		"gcs-bucket",
+		"private-instance",
 		"allow-private-webhooks",
 		"webhook-private-network-allowlist",
 		"log-level",
@@ -112,18 +114,19 @@ func init() {
 
 func runServer() error {
 	instanceProfile := &profile.Profile{
-		Demo:           viper.GetBool("demo"),
-		Addr:           viper.GetString("addr"),
-		Port:           viper.GetInt("port"),
-		UNIXSock:       viper.GetString("unix-sock"),
-		Data:           viper.GetString("data"),
-		Driver:         viper.GetString("driver"),
-		DSN:            viper.GetString("dsn"),
-		InstanceURL:    viper.GetString("instance-url"),
-		RateLimit:      viper.GetBool("rate-limit"),
-		TrustedProxies: viper.GetStringSlice("trusted-proxies"),
-		Version:        version.GetCurrentVersion(),
-		Commit:         version.Commit,
+		Demo:            viper.GetBool("demo"),
+		Addr:            viper.GetString("addr"),
+		Port:            viper.GetInt("port"),
+		UNIXSock:        viper.GetString("unix-sock"),
+		Data:            viper.GetString("data"),
+		Driver:          viper.GetString("driver"),
+		DSN:             viper.GetString("dsn"),
+		InstanceURL:     viper.GetString("instance-url"),
+		RateLimit:       viper.GetBool("rate-limit"),
+		TrustedProxies:  viper.GetStringSlice("trusted-proxies"),
+		PrivateInstance: viper.GetBool("private-instance"),
+		Version:         version.GetCurrentVersion(),
+		Commit:          version.Commit,
 	}
 
 	allowPrivateWebhooks := viper.GetBool("allow-private-webhooks")
@@ -163,6 +166,11 @@ func runServer() error {
 	}
 	if err := storeInstance.PinDefaultGCSStorage(ctx, viper.GetString("gcs-bucket")); err != nil {
 		return errors.Wrap(err, "failed to configure GCS attachment storage")
+	}
+	if instanceProfile.PrivateInstance {
+		if err := storeInstance.EnforcePrivateMemoVisibility(ctx); err != nil {
+			return errors.Wrap(err, "failed to enforce private memo visibility")
+		}
 	}
 	accessSetting, err := storeInstance.GetInstanceAccessSetting(ctx)
 	if err != nil {

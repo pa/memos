@@ -19,6 +19,7 @@ import (
 	"github.com/usememos/memos/internal/clientip"
 	"github.com/usememos/memos/internal/ratelimit"
 	apipb "github.com/usememos/memos/proto/gen/api"
+	"github.com/usememos/memos/server/auth"
 	"github.com/usememos/memos/store"
 )
 
@@ -262,13 +263,24 @@ func (s *APIService) CreateUser(ctx context.Context, request *apipb.CreateUserRe
 			}
 		}
 
-		// Only allow user registration if it is enabled in the settings, or if the user is a superuser
+		// Only allow user registration if it is enabled in the settings, if the
+		// caller holds a valid invite for this username, or if the user is a
+		// superuser. An invite bypasses the registration switch only; password
+		// sign-up must still be allowed.
 		if roleToAssign != store.RoleAdmin {
 			instanceGeneralSetting, err := s.Store.GetInstanceGeneralSetting(ctx)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "failed to get instance general setting, error: %v", err)
 			}
-			if instanceGeneralSetting.DisallowUserRegistration {
+			invited := false
+			if request.InviteToken != "" {
+				claims, err := auth.ParseInviteToken(request.InviteToken, []byte(s.Secret))
+				if err != nil || !strings.EqualFold(claims.Username, request.User.Username) {
+					return nil, status.Errorf(codes.PermissionDenied, "invite link is invalid or expired")
+				}
+				invited = true
+			}
+			if instanceGeneralSetting.DisallowUserRegistration && !invited {
 				return nil, status.Errorf(codes.PermissionDenied, "user registration is not allowed")
 			}
 			if instanceGeneralSetting.DisallowPasswordAuth {

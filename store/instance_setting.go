@@ -222,6 +222,15 @@ func (s *Store) GetInstanceGeneralSetting(ctx context.Context) (*storepb.Instanc
 	if instanceSetting != nil {
 		instanceGeneralSetting = instanceSetting.GetGeneralSetting()
 	}
+	if s.IsPrivateInstance() && !instanceGeneralSetting.GetDisallowUserRegistration() {
+		// Open registration is always off on a private instance; invite links
+		// are the only way in. Clone so the cached value is not mutated.
+		instanceGeneralSetting = proto.CloneOf(instanceGeneralSetting)
+		if instanceGeneralSetting == nil {
+			instanceGeneralSetting = &storepb.InstanceGeneralSetting{}
+		}
+		instanceGeneralSetting.DisallowUserRegistration = true
+	}
 	s.cacheInstanceSetting(ctx, &storepb.InstanceSetting{
 		Key:   storepb.InstanceSettingKey_GENERAL,
 		Value: &storepb.InstanceSetting_GeneralSetting{GeneralSetting: instanceGeneralSetting},
@@ -249,7 +258,28 @@ func (s *Store) GetInstanceAccessSetting(ctx context.Context) (*storepb.Instance
 	if instanceAccessSetting.AccessMode == storepb.InstanceAccessMode_INSTANCE_ACCESS_MODE_UNSPECIFIED {
 		instanceAccessSetting.AccessMode = storepb.InstanceAccessMode_INSTANCE_ACCESS_MODE_PRIVATE
 	}
+	// A private instance never serves anonymous visitors, whatever the
+	// stored setting says.
+	if s.IsPrivateInstance() {
+		instanceAccessSetting = &storepb.InstanceAccessSetting{AccessMode: storepb.InstanceAccessMode_INSTANCE_ACCESS_MODE_PRIVATE}
+	}
 	return instanceAccessSetting, nil
+}
+
+// IsPrivateInstance reports whether the deployment runs as an invite-only
+// private instance.
+func (s *Store) IsPrivateInstance() bool {
+	return s.profile != nil && s.profile.PrivateInstance
+}
+
+// SetPrivateInstance switches private-instance mode at runtime. Production
+// sets it once from the profile at startup; tests use this to exercise both
+// modes against one store.
+func (s *Store) SetPrivateInstance(enabled bool) {
+	if s.profile != nil {
+		s.profile.PrivateInstance = enabled
+	}
+	s.instanceSettingCache.Delete(context.Background(), storepb.InstanceSettingKey_GENERAL.String())
 }
 
 // AllowsAnonymousAccess reports whether the effective instance access policy is public.

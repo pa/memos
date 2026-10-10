@@ -35,7 +35,7 @@ func (s *APIService) prepareMemoCreate(ctx context.Context, user *store.User, in
 	if user == nil || input == nil {
 		return nil, status.Error(codes.InvalidArgument, "memo is required")
 	}
-	visibility, err := validateCreateMemoVisibility(input.Visibility)
+	visibility, err := validateCreateMemoVisibility(input.Visibility, s.Store.IsPrivateInstance())
 	if err != nil {
 		return nil, err
 	}

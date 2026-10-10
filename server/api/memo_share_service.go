@@ -33,6 +33,9 @@ func (s *APIService) CreateMemoShare(ctx context.Context, request *apipb.CreateM
 	if err := s.throttleAndCharge(ratelimit.ScopeWriteUser, userKey(user.ID), 1); err != nil {
 		return nil, err
 	}
+	if s.Store.IsPrivateInstance() {
+		return nil, status.Errorf(codes.FailedPrecondition, "public share links are disabled on this instance")
+	}
 
 	memoUID, err := ExtractMemoUIDFromName(request.Parent)
 	if err != nil {
@@ -219,6 +222,10 @@ func isMemoShareExpired(ms *store.MemoShare) bool {
 }
 
 func (s *APIService) getActiveMemoShare(ctx context.Context, shareID string) (*store.MemoShare, error) {
+	// Share links made before the instance went private stop working.
+	if s.Store.IsPrivateInstance() {
+		return nil, status.Errorf(codes.NotFound, "not found")
+	}
 	ms, err := s.Store.GetMemoShare(ctx, &store.FindMemoShare{UID: &shareID})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get memo share")

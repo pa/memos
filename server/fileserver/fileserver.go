@@ -685,7 +685,7 @@ func (s *FileServerService) checkAttachmentPermission(ctx context.Context, c *ec
 		return access.MemoReadClassPrivate, echo.NewHTTPError(http.StatusInternalServerError, "failed to get instance access policy").Wrap(err)
 	}
 	var sharedMemoID *int32
-	if shareToken := (*c).QueryParam("share_token"); shareToken != "" {
+	if shareToken := (*c).QueryParam("share_token"); shareToken != "" && !s.Store.IsPrivateInstance() {
 		ms, err := s.Store.GetMemoShare(ctx, &store.FindMemoShare{UID: &shareToken})
 		if err != nil {
 			return access.MemoReadClassPrivate, echo.NewHTTPError(http.StatusInternalServerError, "failed to get memo share").Wrap(err)

@@ -128,6 +128,14 @@ func (s *ConnectServiceHandler) CreateUser(ctx context.Context, req *connect.Req
 	return connect.NewResponse(resp), nil
 }
 
+func (s *ConnectServiceHandler) CreateUserInvite(ctx context.Context, req *connect.Request[apipb.CreateUserInviteRequest]) (*connect.Response[apipb.CreateUserInviteResponse], error) {
+	resp, err := s.APIService.CreateUserInvite(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
 func (s *ConnectServiceHandler) UpdateUser(ctx context.Context, req *connect.Request[apipb.UpdateUserRequest]) (*connect.Response[apipb.User], error) {
 	resp, err := s.APIService.UpdateUser(ctx, req.Msg)
 	if err != nil {

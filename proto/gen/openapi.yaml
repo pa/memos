@@ -1981,8 +1981,9 @@ paths:
                 - UserService
             description: |-
                 CreateUser creates a user. The first user of an instance becomes an admin.
-                 Otherwise, unless an admin calls it, the instance must allow user
-                 registration and password sign-up, and the new user gets the USER role.
+                 Otherwise, unless an admin calls it, the caller must present a valid
+                 invite_token, or the instance must allow user registration and password
+                 sign-up; the new user gets the USER role.
             operationId: UserService_CreateUser
             parameters:
                 - name: userId
@@ -2001,6 +2002,13 @@ paths:
                 - name: requestId
                   in: query
                   description: Optional. An idempotency token. Currently ignored.
+                  schema:
+                    type: string
+                - name: inviteToken
+                  in: query
+                  description: |-
+                    Optional. An invite token from CreateUserInvite. It allows sign-up when
+                     open registration is disabled; user.username must match the invited name.
                   schema:
                     type: string
             requestBody:
@@ -3172,6 +3180,34 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Status'
+    /api/users:invite:
+        post:
+            tags:
+                - UserService
+            description: |-
+                CreateUserInvite creates a signed, expiring invite link for one username. Admin only.
+                 The invite works even when open registration is disabled and cannot be used
+                 once the username exists.
+            operationId: UserService_CreateUserInvite
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateUserInviteRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateUserInviteResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
 components:
     schemas:
         AcceptSpaceInvitationRequest:
@@ -3535,6 +3571,30 @@ components:
                     type: string
                     description: The token value. This is the only time it is returned.
             description: Response message for UserService.CreatePersonalAccessToken.
+        CreateUserInviteRequest:
+            required:
+                - username
+            type: object
+            properties:
+                username:
+                    type: string
+                    description: Required. The username the invitee will sign up with.
+                ttlHours:
+                    type: integer
+                    description: Optional. How long the invite stays valid, in hours. Default 72, maximum 720.
+                    format: int32
+            description: Request message for UserService.CreateUserInvite.
+        CreateUserInviteResponse:
+            type: object
+            properties:
+                inviteToken:
+                    type: string
+                    description: The invite token. Share it with the invitee; it is shown only once.
+                expireTime:
+                    type: string
+                    description: When the invite stops working.
+                    format: date-time
+            description: Response message for UserService.CreateUserInvite.
         DeclineSpaceInvitationRequest:
             required:
                 - name
@@ -3844,6 +3904,11 @@ components:
                     description: |-
                         The proof-of-humanity challenge required on signup and password sign-in.
                          Absent when none is configured, which is the case on every self-hosted instance.
+                privateInstance:
+                    type: boolean
+                    description: |-
+                        Whether the instance runs as a private instance: sign-up requires an invite link, memos are limited to
+                         PRIVATE and SPACE, and public share links are disabled.
             description: InstanceProfile is the basic information about the instance.
         InstanceProfile_Challenge:
             type: object

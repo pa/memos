@@ -346,9 +346,12 @@ type InstanceProfile struct {
 	Admin *User `protobuf:"bytes,7,opt,name=admin,proto3" json:"admin,omitempty"`
 	// The proof-of-humanity challenge required on signup and password sign-in.
 	// Absent when none is configured, which is the case on every self-hosted instance.
-	Challenge     *InstanceProfile_Challenge `protobuf:"bytes,8,opt,name=challenge,proto3" json:"challenge,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Challenge *InstanceProfile_Challenge `protobuf:"bytes,8,opt,name=challenge,proto3" json:"challenge,omitempty"`
+	// Whether the instance runs as a private instance: sign-up requires an invite link, memos are limited to
+	// PRIVATE and SPACE, and public share links are disabled.
+	PrivateInstance bool `protobuf:"varint,9,opt,name=private_instance,json=privateInstance,proto3" json:"private_instance,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *InstanceProfile) Reset() {
@@ -435,6 +438,13 @@ func (x *InstanceProfile) GetChallenge() *InstanceProfile_Challenge {
 		return x.Challenge
 	}
 	return nil
+}
+
+func (x *InstanceProfile) GetPrivateInstance() bool {
+	if x != nil {
+		return x.PrivateInstance
+	}
+	return false
 }
 
 // Request message for InstanceService.GetInstanceProfile.
@@ -2377,7 +2387,7 @@ var File_api_instance_service_proto protoreflect.FileDescriptor
 
 const file_api_instance_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1aapi/instance_service.proto\x12\tmemos.api\x1a\x16api/user_service.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/type/color.proto\"\x8a\x03\n" +
+	"\x1aapi/instance_service.proto\x12\tmemos.api\x1a\x16api/user_service.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17google/type/color.proto\"\xb5\x03\n" +
 	"\x0fInstanceProfile\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12\x16\n" +
 	"\x06commit\x18\x02 \x01(\tR\x06commit\x12\x12\n" +
@@ -2388,7 +2398,8 @@ const file_api_instance_service_proto_rawDesc = "" +
 	"\vneeds_setup\x18\x06 \x01(\bR\n" +
 	"needsSetup\x12%\n" +
 	"\x05admin\x18\a \x01(\v2\x0f.memos.api.UserR\x05admin\x12B\n" +
-	"\tchallenge\x18\b \x01(\v2$.memos.api.InstanceProfile.ChallengeR\tchallenge\x1aB\n" +
+	"\tchallenge\x18\b \x01(\v2$.memos.api.InstanceProfile.ChallengeR\tchallenge\x12)\n" +
+	"\x10private_instance\x18\t \x01(\bR\x0fprivateInstance\x1aB\n" +
 	"\tChallenge\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x19\n" +
 	"\bsite_key\x18\x02 \x01(\tR\asiteKey\"\x1b\n" +

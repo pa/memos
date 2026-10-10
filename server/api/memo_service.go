@@ -343,7 +343,7 @@ func (s *APIService) UpdateMemo(ctx context.Context, request *apipb.UpdateMemoRe
 
 	nextVisibility := memo.Visibility
 	if updatePaths["visibility"] {
-		nextVisibility, err = validateUpdateMemoVisibility(request.Memo.Visibility)
+		nextVisibility, err = validateUpdateMemoVisibility(request.Memo.Visibility, s.Store.IsPrivateInstance())
 		if err != nil {
 			return nil, err
 		}
