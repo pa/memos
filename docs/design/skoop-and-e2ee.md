@@ -120,26 +120,46 @@ limit of any browser-based E2EE app.
 
 ### Keys
 
+Two kinds of passphrase, matching how people already think about it:
+
+| Passphrase | Who knows it | Unlocks |
+| --- | --- | --- |
+| Personal passphrase | One user only. Never shared, never sent to the server | That user's private memos, plus their saved copies of Space keys |
+| Space passphrase | Every member of one Space (team). Set by the Space admin, shared with members out of band (in person, Signal) | That Space's shared memos only |
+
 Per user (hopnote design, its crypto suite passes 14 of 14):
 
-- Account key pair: X25519 for key exchange plus Ed25519 for signatures, generated in the browser.
-- Personal content key `PK` (random 256-bit) for memos with no Space.
-- Passphrase -> Argon2id (64 MiB, t=3) -> key that wraps the private keys and `PK`. A recovery key wraps them too.
-- Stored as `UserSetting ENCRYPTION_KEYRING`. The public keys are readable by other users so they can share with you.
+- Personal content key `PK` (random 256-bit) encrypts every memo that is not shared to a Space.
+- Personal passphrase -> Argon2id (64 MiB, t=3) -> key that wraps `PK`. A recovery key, shown once, wraps it too.
+- Stored as `UserSetting ENCRYPTION_KEYRING` (salt, KDF parameters, wrapped keys only).
 
 Per Space:
 
-- Space key `SK` (random 256-bit), with an epoch number.
-- For each member, `SK` is sealed to that member's X25519 public key and stored on the membership. `space_member` today
-  is `(space_id, user_id, status, role)`, so this adds a `wrapped_space_keys: [{epoch, sealed}]` field (a new column in
-  each SQL driver's migration plus `LATEST.sql`, a plain field in Firestore).
-- Invite: the inviting Space admin's browser seals `SK` to the invitee's public key when creating the invitation. On
-  accept, the server copies it to the membership. The server never sees `SK`.
-- Remove a member: the next admin action rotates to a new epoch, seals the new `SK` to remaining members, and new memos
-  use it. Old memos stay on the old epoch (the removed member may have cached them anyway). Optional re-encrypt of old
-  memos.
-- Trust: on first contact the inviter sees the invitee's key fingerprint. Showing and comparing fingerprints is
-  optional, but it is the only defense against a malicious server swapping keys.
+- Space key `SK` (random 256-bit), wrapped by a key derived from the Space passphrase (Argon2id, own salt). The wrapped
+  `SK` and salt are stored on the Space (new `space.payload` fields).
+- Joining: the user accepts the invite (existing flow), then types the Space passphrase once. The browser unwraps `SK`,
+  then re-wraps it with the user's own `PK` and saves that copy on their membership (`space_member` gains a
+  `wrapped_space_key` field). After that the personal passphrase alone opens everything, and the Space passphrase is not
+  needed again on that account.
+- Wrong Space passphrase: AES-GCM authentication fails, so the browser knows at once without asking the server.
+- Remove a member: the Space admin sets a new Space passphrase. The browser creates a new `SK` (next epoch), and the
+  remaining members type the new passphrase once. New memos use the new key. Old memos stay on the old epoch unless the
+  admin runs "re-encrypt", because the removed member may already hold copies.
+- Change the Space passphrase without removing anyone: only re-wraps the same `SK`, no memo is touched, members are not
+  prompted.
+- The instance admin is not a member of other people's Spaces and never learns a Space passphrase, so cannot read them.
+
+Compared with automatic key exchange (public key per user, Space key sealed to each member): the passphrase model needs no
+public keys and no fingerprint checks, and is easier to reason about. The trade-off is that the admin must hand the Space
+passphrase to each new member and again after a removal. Automatic exchange can be added later without re-encrypting.
+
+### Sharing a memo with the team
+
+- A memo is always encrypted. In the editor, the Space picker decides which key: no Space means `PK` (only you), a Space
+  means `SK` (that team).
+- Moving a memo into a Space re-encrypts it from `PK` to `SK` in the browser. Moving it out re-encrypts it back to `PK`.
+- A memo belongs to at most one Space. Sharing one memo with several teams does not exist in Memos today and is out of
+  scope.
 
 ### What gets encrypted
 
@@ -166,8 +186,9 @@ Per Space:
 
 ### Unlock UX
 
-Sign in with password, then enter passphrase (first time: create passphrase, save recovery key). Option to remember the
-device for 30 days as a non-extractable key in IndexedDB. Auto-lock after idle. Changing the passphrase rewraps keys only.
+Sign in with password, then enter the personal passphrase (first time: create it, save recovery key). Opening a Space for
+the first time asks for that Space's passphrase once. Option to remember the device for 30 days as a non-extractable key
+in IndexedDB. Auto-lock after idle. Changing the personal passphrase rewraps keys only.
 
 ## 5. Phases
 
@@ -178,9 +199,9 @@ device for 30 days as a non-extractable key in IndexedDB. Auto-lock after idle. 
 | 2 | skoop: add `firestore/mongodb`, grant `datastore.user` + `datastore.indexAdmin` with the IAM condition, build image from this repo, migration job, switch, drop the FUSE mount, GCS attachment provider | Live site on Firestore with your data |
 | 3 | Access model: invite-only signup, invite links, remove admin bypass, drop `PUBLIC`/`PROTECTED` | Server tests cover isolation |
 | 4 | E2EE personal: keyring, unlock UI, encrypted memos, client search/tags/filters, encrypt existing memos | All personal memos are ciphertext in Firestore |
-| 5 | E2EE Spaces: account key pairs, Space keys, invite/accept/remove/rotate | Two test users share an encrypted Space |
+| 5 | E2EE Spaces: Space passphrase and key, join with passphrase, move memo in/out re-encrypts, rotate on member removal | Two test users share an encrypted Space; a third user and the instance admin see only ciphertext |
 | 6 | Encrypted attachments and thumbnails, client export | No plaintext files in the bucket |
-| 7 | Hardening: CSP, auto-lock, recovery drill, fingerprints, restore drill | Checklist done |
+| 7 | Hardening: CSP, auto-lock, recovery drill, restore drill | Checklist done |
 
 Phases 1 to 2 can ship before E2EE, so the database risk goes away first.
 
