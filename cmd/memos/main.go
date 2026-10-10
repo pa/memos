@@ -64,6 +64,7 @@ func init() {
 	rootCmd.Flags().String("driver", "sqlite", "database driver (sqlite, mysql, postgres, d1)")
 	rootCmd.Flags().String("dsn", "", "database source name (DSN)")
 	rootCmd.Flags().String("instance-url", "", "canonical external URL of the Memos instance")
+	rootCmd.Flags().String("gcs-bucket", "", "Google Cloud Storage bucket used for new attachments, with ambient Google credentials")
 	rootCmd.Flags().Bool("allow-private-webhooks", false, "allow webhooks to access any private/reserved IP address")
 	rootCmd.Flags().StringSlice("webhook-private-network-allowlist", nil, "private webhook destinations to allow (exact hostname, IP, or CIDR)")
 	rootCmd.Flags().String("log-level", "info", "log verbosity level (debug, info, warn, error)")
@@ -82,6 +83,7 @@ func init() {
 		"driver",
 		"dsn",
 		"instance-url",
+		"gcs-bucket",
 		"allow-private-webhooks",
 		"webhook-private-network-allowlist",
 		"log-level",
@@ -158,6 +160,9 @@ func runServer() error {
 	}
 	if err := storeInstance.LoadDeploymentConfiguration(ctx); err != nil {
 		return errors.Wrap(err, "failed to load deployment configuration")
+	}
+	if err := storeInstance.PinDefaultGCSStorage(ctx, viper.GetString("gcs-bucket")); err != nil {
+		return errors.Wrap(err, "failed to configure GCS attachment storage")
 	}
 	accessSetting, err := storeInstance.GetInstanceAccessSetting(ctx)
 	if err != nil {

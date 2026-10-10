@@ -644,3 +644,47 @@ func TestInstanceSettingEdgeCases(t *testing.T) {
 
 	ts.Close()
 }
+
+func TestPinDefaultGCSStorage(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	ts := NewTestingStore(ctx, t)
+	defer ts.Close()
+
+	// An empty bucket leaves the default storage alone.
+	require.NoError(t, ts.PinDefaultGCSStorage(ctx, " "))
+	setting, err := ts.GetInstanceStorageSetting(ctx)
+	require.NoError(t, err)
+	require.Equal(t, storepb.StorageType_STORAGE_TYPE_LOCAL, store.GetDefaultStorage(setting).Type)
+
+	require.NoError(t, ts.PinDefaultGCSStorage(ctx, "notes-bucket"))
+	setting, err = ts.GetInstanceStorageSetting(ctx)
+	require.NoError(t, err)
+	gcsStorage := store.GetDefaultStorage(setting)
+	require.Equal(t, storepb.StorageType_STORAGE_TYPE_GCS, gcsStorage.Type)
+	require.Equal(t, "notes-bucket", gcsStorage.GetGcsConfig().GetBucket())
+	require.Equal(t, "notes-bucket", gcsStorage.Name)
+	require.Regexp(t, `^gcs-[0-9a-f]{16}$`, gcsStorage.Id)
+	require.NotNil(t, store.FindStorage(setting, "local"), "previous storage stays registered for older attachments")
+
+	// Pinning again is a no-op that keeps the same identity.
+	require.NoError(t, ts.PinDefaultGCSStorage(ctx, "notes-bucket"))
+	again, err := ts.GetInstanceStorageSetting(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gcsStorage.Id, again.DefaultStorageId)
+	require.Len(t, again.Storages, len(setting.Storages))
+
+	// A different bucket gets its own identity; the old one is kept.
+	require.NoError(t, ts.PinDefaultGCSStorage(ctx, "other-bucket"))
+	moved, err := ts.GetInstanceStorageSetting(ctx)
+	require.NoError(t, err)
+	require.NotEqual(t, gcsStorage.Id, moved.DefaultStorageId)
+	require.NotNil(t, store.FindStorage(moved, gcsStorage.Id))
+
+	// Switching back reuses the original registration.
+	require.NoError(t, ts.PinDefaultGCSStorage(ctx, "notes-bucket"))
+	back, err := ts.GetInstanceStorageSetting(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gcsStorage.Id, back.DefaultStorageId)
+	require.Len(t, back.Storages, len(moved.Storages))
+}

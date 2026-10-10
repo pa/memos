@@ -234,6 +234,11 @@ func convertStorageFromStore(storagepb *storepb.Storage) *apipb.InstanceSetting_
 			},
 		}
 	}
+	if gcsConfig := storagepb.GetGcsConfig(); gcsConfig != nil {
+		storage.Config = &apipb.InstanceSetting_Storage_GcsConfig{
+			GcsConfig: &apipb.InstanceSetting_Storage_GCSConfig{Bucket: gcsConfig.Bucket},
+		}
+	}
 	return storage
 }
 
@@ -257,6 +262,11 @@ func convertStorageToStore(storage *apipb.InstanceSetting_Storage) *storepb.Stor
 				UsePathStyle:          s3Config.UsePathStyle,
 				InsecureSkipTlsVerify: s3Config.InsecureSkipTlsVerify,
 			},
+		}
+	}
+	if gcsConfig := storage.GetGcsConfig(); gcsConfig != nil {
+		storagepb.Config = &storepb.Storage_GcsConfig{
+			GcsConfig: &storepb.StorageGCSConfig{Bucket: gcsConfig.Bucket},
 		}
 	}
 	return storagepb

@@ -10,7 +10,8 @@ enum AttachmentStorageType {
   ATTACHMENT_STORAGE_TYPE_UNSPECIFIED = 0;
   // Attachment is stored locally. AKA, local file system.
   LOCAL = 1;
-  // Attachment is stored in S3.
+  // Attachment is stored in an object store (S3 or GCS) resolved through
+  // payload.s3_object.storage_id.
   S3 = 2;
   // Attachment is stored in an external storage. The reference is a URL.
   EXTERNAL = 3;

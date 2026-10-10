@@ -416,3 +416,26 @@ func storageIDs(storages []*storepb.Storage) []string {
 	}
 	return ids
 }
+
+func TestPrepareInstanceStorageSettingUpdateRejectsGCSWithoutBucket(t *testing.T) {
+	incoming := &storepb.InstanceStorageSetting{
+		Storages: []*storepb.Storage{{
+			Id:     "gcs-empty",
+			Type:   storepb.StorageType_STORAGE_TYPE_GCS,
+			Config: &storepb.Storage_GcsConfig{GcsConfig: &storepb.StorageGCSConfig{}},
+		}},
+		DefaultStorageId: "gcs-empty",
+	}
+	require.EqualError(t, store.PrepareInstanceStorageSettingUpdate(incoming, nil), `storage "gcs-empty" GCS bucket is required`)
+}
+
+func TestStorageNamespaceEqualComparesGCSBuckets(t *testing.T) {
+	gcs := func(bucket string) *storepb.Storage {
+		return &storepb.Storage{
+			Type:   storepb.StorageType_STORAGE_TYPE_GCS,
+			Config: &storepb.Storage_GcsConfig{GcsConfig: &storepb.StorageGCSConfig{Bucket: bucket}},
+		}
+	}
+	require.True(t, store.StorageNamespaceEqual(gcs("a"), gcs(" a ")))
+	require.False(t, store.StorageNamespaceEqual(gcs("a"), gcs("b")))
+}

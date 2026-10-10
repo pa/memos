@@ -8,7 +8,7 @@ swapped.
 | --- | --- |
 | `ai/` | speech-to-text and audio-capable LLM providers (OpenAI, Gemini) |
 | `idp/` | identity providers for SSO (OAuth2) |
-| `storage/` | attachment object storage (local disk, S3) |
+| `storage/` | attachment object storage (local disk, S3, GCS with ambient Google credentials) |
 
 Layering: `provider` may import `proto/gen` and `internal`. It must not import
 `store`, `core`, or `server`; `store` resolves the configured provider and hands

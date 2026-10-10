@@ -27,7 +27,8 @@ const (
 	AttachmentStorageType_ATTACHMENT_STORAGE_TYPE_UNSPECIFIED AttachmentStorageType = 0
 	// Attachment is stored locally. AKA, local file system.
 	AttachmentStorageType_LOCAL AttachmentStorageType = 1
-	// Attachment is stored in S3.
+	// Attachment is stored in an object store (S3 or GCS) resolved through
+	// payload.s3_object.storage_id.
 	AttachmentStorageType_S3 AttachmentStorageType = 2
 	// Attachment is stored in an external storage. The reference is a URL.
 	AttachmentStorageType_EXTERNAL AttachmentStorageType = 3

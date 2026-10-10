@@ -326,6 +326,50 @@ func (s *Store) resetStorageDriverCache() {
 	s.storageDriverCache = nil
 }
 
+// PinDefaultGCSStorage registers the GCS bucket (if needed) and makes it the
+// storage for new attachments. Deployments call it at startup so a fresh
+// instance on a stateless host never writes attachments to the local disk.
+// Existing storages stay registered so older attachments still resolve.
+func (s *Store) PinDefaultGCSStorage(ctx context.Context, bucket string) error {
+	bucket = strings.TrimSpace(bucket)
+	if bucket == "" {
+		return nil
+	}
+	if s.IsInstanceSettingDeploymentConfigured(storepb.InstanceSettingKey_STORAGE) {
+		return errors.New("the GCS bucket flag conflicts with a deployment storage setting file")
+	}
+	stored, err := s.GetStoredInstanceSetting(ctx, &FindInstanceSetting{Name: storepb.InstanceSettingKey_STORAGE.String()})
+	if err != nil {
+		return errors.Wrap(err, "failed to get storage setting")
+	}
+	setting := &storepb.InstanceStorageSetting{}
+	if stored.GetStorageSetting() != nil {
+		setting = proto.CloneOf(stored.GetStorageSetting())
+	}
+	NormalizeInstanceStorageSetting(setting)
+	target := &storepb.Storage{
+		Type:   storepb.StorageType_STORAGE_TYPE_GCS,
+		Config: &storepb.Storage_GcsConfig{GcsConfig: &storepb.StorageGCSConfig{Bucket: bucket}},
+	}
+	if current := GetDefaultStorage(setting); StorageNamespaceEqual(current, target) {
+		return nil
+	}
+	if existing := findEquivalentStorage(setting.Storages, target); existing != nil {
+		setting.DefaultStorageId = existing.Id
+	} else {
+		normalizeStorage(target)
+		setting.Storages = append(setting.Storages, target)
+		setting.DefaultStorageId = target.Id
+	}
+	if _, err := s.UpsertInstanceSetting(ctx, &storepb.InstanceSetting{
+		Key:   storepb.InstanceSettingKey_STORAGE,
+		Value: &storepb.InstanceSetting_StorageSetting{StorageSetting: setting},
+	}); err != nil {
+		return errors.Wrap(err, "failed to save storage setting")
+	}
+	return nil
+}
+
 // FindStorage returns the configured storage with the given stable identifier.
 func FindStorage(setting *storepb.InstanceStorageSetting, storageID string) *storepb.Storage {
 	if setting == nil || storageID == "" {
@@ -353,6 +397,9 @@ func GetDefaultStorage(setting *storepb.InstanceStorageSetting) *storepb.Storage
 func StorageNamespaceEqual(a, b *storepb.Storage) bool {
 	if a == nil || b == nil || a.Type != b.Type {
 		return false
+	}
+	if a.Type == storepb.StorageType_STORAGE_TYPE_GCS {
+		return strings.TrimSpace(a.GetGcsConfig().GetBucket()) == strings.TrimSpace(b.GetGcsConfig().GetBucket())
 	}
 	if a.Type != storepb.StorageType_STORAGE_TYPE_S3 {
 		return true
@@ -395,6 +442,9 @@ func normalizeStorage(storage *storepb.Storage) {
 	if storage.Type == storepb.StorageType_STORAGE_TYPE_UNSPECIFIED && storage.GetS3Config() != nil {
 		storage.Type = storepb.StorageType_STORAGE_TYPE_S3
 	}
+	if storage.Type == storepb.StorageType_STORAGE_TYPE_UNSPECIFIED && storage.GetGcsConfig() != nil {
+		storage.Type = storepb.StorageType_STORAGE_TYPE_GCS
+	}
 	if storage.Id == "" {
 		storage.Id = storageID(storage)
 	}
@@ -424,6 +474,13 @@ func storageID(storage *storepb.Storage) string {
 		}, "\x00")
 		hash := sha256.Sum256([]byte(namespace))
 		return "s3-" + hex.EncodeToString(hash[:])[:16]
+	case storepb.StorageType_STORAGE_TYPE_GCS:
+		bucket := strings.TrimSpace(storage.GetGcsConfig().GetBucket())
+		if bucket == "" {
+			return ""
+		}
+		hash := sha256.Sum256([]byte(bucket))
+		return "gcs-" + hex.EncodeToString(hash[:])[:16]
 	default:
 		return ""
 	}
@@ -443,6 +500,11 @@ func defaultStorageName(storage *storepb.Storage) string {
 			return bucket
 		}
 		return "S3"
+	case storepb.StorageType_STORAGE_TYPE_GCS:
+		if bucket := strings.TrimSpace(storage.GetGcsConfig().GetBucket()); bucket != "" {
+			return bucket
+		}
+		return "GCS"
 	default:
 		return "Storage"
 	}
@@ -537,6 +599,9 @@ func validateInstanceStorages(setting *storepb.InstanceStorageSetting) error {
 		}
 		if storage.Type == storepb.StorageType_STORAGE_TYPE_S3 && storage.GetS3Config() == nil {
 			return errors.Errorf("storage %q S3 config is required", storage.Id)
+		}
+		if storage.Type == storepb.StorageType_STORAGE_TYPE_GCS && strings.TrimSpace(storage.GetGcsConfig().GetBucket()) == "" {
+			return errors.Errorf("storage %q GCS bucket is required", storage.Id)
 		}
 	}
 	if !seenIDs[setting.DefaultStorageId] {

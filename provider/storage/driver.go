@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	storepb "github.com/usememos/memos/proto/gen/store"
+	"github.com/usememos/memos/provider/storage/gcs"
 	"github.com/usememos/memos/provider/storage/s3"
 )
 
@@ -43,6 +44,11 @@ func NewDriver(ctx context.Context, configuredStorage *storepb.Storage) (Driver,
 			return nil, errors.Errorf("S3 config is missing for storage %q", configuredStorage.Id)
 		}
 		return s3.NewDriver(ctx, configuredStorage.GetS3Config())
+	case storepb.StorageType_STORAGE_TYPE_GCS:
+		if configuredStorage.GetGcsConfig() == nil {
+			return nil, errors.Errorf("GCS config is missing for storage %q", configuredStorage.Id)
+		}
+		return gcs.NewDriver(ctx, configuredStorage.GetGcsConfig())
 	default:
 		return nil, errors.Errorf("storage %q has unsupported driver type %s", configuredStorage.Id, configuredStorage.Type.String())
 	}

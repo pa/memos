@@ -82,6 +82,8 @@ enum StorageType {
   STORAGE_TYPE_LOCAL = 2;
   // S3 stores attachment content in an S3-compatible object store.
   STORAGE_TYPE_S3 = 3;
+  // GCS stores attachment content in Google Cloud Storage using ambient credentials.
+  STORAGE_TYPE_GCS = 4;
 }
 
 // Storage is a configured attachment storage instance.
@@ -94,6 +96,7 @@ message Storage {
 
   oneof config {
     StorageS3Config s3_config = 10;
+    StorageGCSConfig gcs_config = 11;
   }
 }
 
@@ -107,6 +110,8 @@ message InstanceStorageSetting {
     LOCAL = 2;
     // STORAGE_TYPE_S3 is the S3 storage type.
     S3 = 3;
+    // GCS is the Google Cloud Storage type.
+    GCS = 4;
   }
   // Legacy compatibility field. New code uses default_storage_id.
   StorageType storage_type = 1;
@@ -122,6 +127,12 @@ message InstanceStorageSetting {
   repeated Storage storages = 5;
   // default_storage_id identifies the storage used for new attachments.
   string default_storage_id = 6;
+}
+
+// StorageGCSConfig addresses a Google Cloud Storage bucket. Credentials come from
+// the environment (Application Default Credentials), never from settings.
+message StorageGCSConfig {
+  string bucket = 1;
 }
 
 // Reference: https://developers.cloudflare.com/r2/examples/aws/aws-sdk-go/

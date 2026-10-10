@@ -4025,6 +4025,7 @@ components:
                         - DATABASE
                         - LOCAL
                         - S3
+                        - GCS
                     type: string
                     description: The storage backend.
                     format: enum
@@ -4032,6 +4033,10 @@ components:
                     allOf:
                         - $ref: '#/components/schemas/Storage_S3Config'
                     description: The configuration of an S3 storage.
+                gcsConfig:
+                    allOf:
+                        - $ref: '#/components/schemas/Storage_GCSConfig'
+                    description: The configuration of a Google Cloud Storage bucket.
             description: Storage is a configured attachment storage instance.
         InstanceSetting_StorageSetting:
             type: object
@@ -4058,6 +4063,7 @@ components:
                         - DATABASE
                         - LOCAL
                         - S3
+                        - GCS
                     type: string
                     description: Legacy compatibility field. New clients use default_storage_id.
                     format: enum
@@ -5174,6 +5180,13 @@ components:
             description: |-
                 S3Config is the legacy S3 configuration, retained for compatibility with existing clients.
                  Reference: https://developers.cloudflare.com/r2/examples/aws/aws-sdk-go/
+        Storage_GCSConfig:
+            type: object
+            properties:
+                bucket:
+                    type: string
+                    description: The bucket name.
+            description: GCSConfig is the configuration of a Google Cloud Storage bucket. Credentials come from the server environment.
         Storage_S3Config:
             type: object
             properties:

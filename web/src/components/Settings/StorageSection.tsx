@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   InstanceSetting_Key,
   InstanceSetting_Storage,
+  InstanceSetting_Storage_GCSConfigSchema,
   InstanceSetting_Storage_S3Config,
   InstanceSetting_Storage_S3ConfigSchema,
   InstanceSetting_StorageSchema,
@@ -35,11 +36,25 @@ const DEFAULT_FILEPATH_TEMPLATE = "assets/{timestamp}_{uuid}_{filename}";
 type StorageTypeOption = {
   storageType: InstanceSetting_StorageType;
   id: string;
-  titleKey: "setting.storage.type-database" | "setting.storage.type-local" | "setting.storage.type-s3";
-  descriptionKey: "setting.storage.database-description" | "setting.storage.local-description" | "setting.storage.s3-description";
+  titleKey: "setting.storage.type-database" | "setting.storage.type-local" | "setting.storage.type-s3" | "setting.storage.type-gcs";
+  descriptionKey:
+    | "setting.storage.database-description"
+    | "setting.storage.local-description"
+    | "setting.storage.s3-description"
+    | "setting.storage.gcs-description";
   noteKeys: readonly [
-    "setting.storage.database-note-backup" | "setting.storage.local-note-path" | "setting.storage.s3-note-scale",
-    "setting.storage.database-note-size" | "setting.storage.local-note-backup" | "setting.storage.s3-note-config",
+    (
+      | "setting.storage.database-note-backup"
+      | "setting.storage.local-note-path"
+      | "setting.storage.s3-note-scale"
+      | "setting.storage.gcs-note-scale"
+    ),
+    (
+      | "setting.storage.database-note-size"
+      | "setting.storage.local-note-backup"
+      | "setting.storage.s3-note-config"
+      | "setting.storage.gcs-note-config"
+    ),
   ];
   icon: LucideIcon;
   badges?: readonly ("setting.storage.badge-default" | "setting.storage.badge-recommended")[];
@@ -71,6 +86,14 @@ const storageTypeOptions: StorageTypeOption[] = [
     noteKeys: ["setting.storage.s3-note-scale", "setting.storage.s3-note-config"],
     icon: CloudIcon,
   },
+  {
+    storageType: InstanceSetting_StorageType.GCS,
+    id: "storage-type-gcs",
+    titleKey: "setting.storage.type-gcs",
+    descriptionKey: "setting.storage.gcs-description",
+    noteKeys: ["setting.storage.gcs-note-scale", "setting.storage.gcs-note-config"],
+    icon: CloudIcon,
+  },
 ];
 
 const getDefaultStorage = (setting: InstanceSetting_StorageSetting): InstanceSetting_Storage | undefined =>
@@ -98,6 +121,11 @@ const findStorageForType = (
 
 const normalizeEndpoint = (endpoint: string): string => endpoint.trim().replace(/\/+$/, "");
 
+const getGCSBucket = (setting: InstanceSetting_StorageSetting): string => {
+  const storage = getDefaultStorage(setting);
+  return storage?.config.case === "gcsConfig" ? storage.config.value.bucket : "";
+};
+
 const hasReusableS3Credential = (
   setting: InstanceSetting_StorageSetting,
   target: InstanceSetting_Storage_S3Config | InstanceSetting_StorageSetting_S3Config | undefined,
@@ -123,15 +151,25 @@ const hasReusableS3Credential = (
 
 const createStorage = (storageType: InstanceSetting_StorageType): InstanceSetting_Storage => {
   const storageTypeName = InstanceSetting_StorageType[storageType];
-  const id = storageType === InstanceSetting_StorageType.S3 ? `s3-${uuidv4()}` : storageTypeName.toLowerCase();
+  const id =
+    storageType === InstanceSetting_StorageType.S3
+      ? `s3-${uuidv4()}`
+      : storageType === InstanceSetting_StorageType.GCS
+        ? `gcs-${uuidv4()}`
+        : storageTypeName.toLowerCase();
   return create(InstanceSetting_StorageSchema, {
     id,
-    name: storageType === InstanceSetting_StorageType.S3 ? "S3" : `${storageTypeName[0]}${storageTypeName.slice(1).toLowerCase()}`,
+    name:
+      storageType === InstanceSetting_StorageType.S3 || storageType === InstanceSetting_StorageType.GCS
+        ? storageTypeName
+        : `${storageTypeName[0]}${storageTypeName.slice(1).toLowerCase()}`,
     type: storageType,
     config:
       storageType === InstanceSetting_StorageType.S3
         ? { case: "s3Config", value: create(InstanceSetting_Storage_S3ConfigSchema, {}) }
-        : { case: undefined },
+        : storageType === InstanceSetting_StorageType.GCS
+          ? { case: "gcsConfig", value: create(InstanceSetting_Storage_GCSConfigSchema, {}) }
+          : { case: undefined },
   });
 };
 
@@ -189,6 +227,10 @@ const StorageSection = () => {
       ) {
         return false;
       }
+    } else if (selectedStorageType === InstanceSetting_StorageType.GCS) {
+      if (!instanceStorageSetting.filepathTemplate || !getGCSBucket(instanceStorageSetting).trim()) {
+        return false;
+      }
     }
     return !isEqual(originalSetting, canonicalizeStorageSetting(instanceStorageSetting, originalSetting));
   }, [canReuseSelectedS3Secret, instanceStorageSetting, originalSetting, selectedS3Config, selectedStorageType]);
@@ -243,6 +285,27 @@ const StorageSection = () => {
       // Replace in place to preserve the registry order the server maintains.
       // The legacy storageType/s3Config mirror fields are left untouched: the
       // server re-derives them from the named model on every update.
+      const storages = current.storages.some((storage) => storage.id === updatedStorage.id)
+        ? current.storages.map((storage) => (storage.id === updatedStorage.id ? updatedStorage : storage))
+        : [updatedStorage, ...current.storages];
+      return create(InstanceSetting_StorageSettingSchema, {
+        ...current,
+        storages,
+        defaultStorageId: updatedStorage.id,
+      });
+    });
+  };
+
+  const handleGCSBucketChange = (bucket: string) => {
+    setInstanceStorageSetting((current) => {
+      let configuredStorage = getDefaultStorage(current);
+      if (configuredStorage?.type !== InstanceSetting_StorageType.GCS) {
+        configuredStorage = findStorageForType(current, InstanceSetting_StorageType.GCS) ?? createStorage(InstanceSetting_StorageType.GCS);
+      }
+      const updatedStorage = create(InstanceSetting_StorageSchema, {
+        ...configuredStorage,
+        config: { case: "gcsConfig", value: create(InstanceSetting_Storage_GCSConfigSchema, { bucket }) },
+      });
       const storages = current.storages.some((storage) => storage.id === updatedStorage.id)
         ? current.storages.map((storage) => (storage.id === updatedStorage.id ? updatedStorage : storage))
         : [updatedStorage, ...current.storages];
@@ -448,6 +511,18 @@ const StorageSection = () => {
               checked={selectedS3Config?.insecureSkipTlsVerify ?? false}
               onCheckedChange={(checked) => handleS3FieldChange("insecureSkipTlsVerify", checked)}
             />
+          </SettingRow>
+        </SettingGroup>
+      )}
+
+      {selectedStorageType === InstanceSetting_StorageType.GCS && (
+        <SettingGroup
+          title={t("setting.storage.gcs-configuration")}
+          description={t("setting.storage.gcs-configuration-description")}
+          showSeparator
+        >
+          <SettingRow label={t("setting.storage.bucket")} description={t("setting.storage.bucket-description")}>
+            <Input className="w-64" value={getGCSBucket(instanceStorageSetting)} onChange={(e) => handleGCSBucketChange(e.target.value)} />
           </SettingRow>
         </SettingGroup>
       )}

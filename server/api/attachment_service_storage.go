@@ -133,7 +133,7 @@ func saveAttachmentContent(
 		create.Reference = internalPath
 		create.Blob = nil
 		create.StorageType = storepb.AttachmentStorageType_LOCAL
-	} else if defaultStorage.Type == storepb.StorageType_STORAGE_TYPE_S3 {
+	} else if defaultStorage.Type == storepb.StorageType_STORAGE_TYPE_S3 || defaultStorage.Type == storepb.StorageType_STORAGE_TYPE_GCS {
 		driver, err := stores.StorageDriver(ctx, defaultStorage)
 		if err != nil {
 			return errors.Wrap(err, "failed to create storage driver")
@@ -156,7 +156,8 @@ func saveAttachmentContent(
 			return errors.Wrap(err, "failed to upload via storage driver")
 		}
 
-		// S3 attachments carry no reference; they are served via the authenticated file route.
+		// Object-store attachments (S3 or GCS) carry no reference; they are
+		// served via the authenticated file route and resolved by storage ID.
 		create.Blob = nil
 		create.StorageType = storepb.AttachmentStorageType_S3
 		payload := ensureAttachmentPayload(create.Payload)
