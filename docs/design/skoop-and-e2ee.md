@@ -70,7 +70,7 @@ every memo encrypted, the server-side filter shrinks to metadata only: `creator`
 
 ### Testing
 
-`store/test/` already runs the same 47 test files against each driver via `DRIVER=...` and TestContainers. Add
+`store/test/` already runs the same suite (44 test files) against each driver via `DRIVER=...` and TestContainers. Add
 `DRIVER=firestore`. Locally the tests run against a MongoDB 7 container, which is close but not identical to Firestore.
 Before cutover, run the same suite once against a real Firestore database to catch the differences (index rules,
 transaction conflicts, sort order).
@@ -106,8 +106,8 @@ Changes:
 3. **No implicit visibility between users.** Memos are always `PRIVATE` (author only) or `SPACE` (members of one Space).
    `PROTECTED` (all users of the instance) and `PUBLIC` are removed from the UI and rejected by the API, because they
    cannot be encrypted for "everyone".
-4. **Space invites stay inside the instance.** A Space admin invites an existing user by username, as today. Users can only
-   find each other by exact username or email, not by listing users, so users do not see who else is on the instance.
+4. **Space invites stay inside the instance.** A Space admin invites an existing user by username, as today. `ListUsers`
+   is already admin-only, so regular users cannot enumerate the instance; they can only look up an exact username.
 
 ## 4. End-to-end encryption
 
@@ -130,8 +130,9 @@ Per user (hopnote design, its crypto suite passes 14 of 14):
 Per Space:
 
 - Space key `SK` (random 256-bit), with an epoch number.
-- For each member, `SK` is sealed to that member's X25519 public key and stored on the `space_member` row
-  (`wrapped_space_keys: [{epoch, sealed}]`).
+- For each member, `SK` is sealed to that member's X25519 public key and stored on the membership. `space_member` today
+  is `(space_id, user_id, status, role)`, so this adds a `wrapped_space_keys: [{epoch, sealed}]` field (a new column in
+  each SQL driver's migration plus `LATEST.sql`, a plain field in Firestore).
 - Invite: the inviting Space admin's browser seals `SK` to the invitee's public key when creating the invitation. On
   accept, the server copies it to the membership. The server never sees `SK`.
 - Remove a member: the next admin action rotates to a new epoch, seals the new `SK` to remaining members, and new memos
@@ -157,7 +158,7 @@ Per Space:
 | --- | --- |
 | Search, content filters, task/link/code flags, title | Client side, over decrypted memos, with an in-memory index per session |
 | Tag tree and tag filter | Client side, plus the blind index for server-side paging |
-| `MemoPayload` rebuild runner (`core/memopayload`) | Disabled for encrypted memos. The client sends the blind-index tags |
+| `MemoPayload` rebuild (`memopayload.RebuildMemoPayload`, called inline on create, update and import) | Skipped for encrypted content. The client sends the blind-index tags and flags |
 | Public share links, `PUBLIC`, `PROTECTED`, RSS | Removed. Possible later: share link with key in the URL fragment |
 | AI, MCP server, webhooks, email notification bodies, link previews, mention parsing | Off. Notifications send "new memo in Space X" without content |
 | Server-side export and import | Client-side export of decrypted memos |
