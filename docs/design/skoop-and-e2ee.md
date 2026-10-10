@@ -35,7 +35,8 @@ Problems, most urgent first:
 3. **CDN caching (verified OK).** Attachments are served `private, no-store`, and API responses `no-store`. Only avatars
    on a public instance are `public, max-age=3600`, which is fine. Enabling `cdn.enforce_no_store` is optional defense
    in depth.
-4. **Attachments default to the database** (`STORAGE_TYPE_DATABASE`), which bloats the SQLite file.
+4. **Attachments default to LOCAL storage** (`storageFromLegacySetting` in `store/storage.go`), which means files under
+   `MEMOS_DATA`, today the GCS FUSE mount. It works but is slow, and it disappears once the FUSE mount is removed.
 5. skoop shows pending changes on all three resources that were never released.
 
 ## 3. Database: options
@@ -68,7 +69,7 @@ E2EE (section 5) moves search and filtering to the client anyway, which removes 
 ### Attachments
 
 Add a native GCS storage provider in `provider/storage/gcs` using the service account (no HMAC keys), set it as the
-default, and migrate existing DB blobs to it. Optionally use V4 signed URLs (`enable_url_signing`). With E2EE the
+default, and copy existing local files (and any DB-stored blobs) to it with references updated. Optionally use V4 signed URLs (`enable_url_signing`). With E2EE the
 objects are ciphertext anyway.
 
 ## 4. skoop wiring (Option A)
@@ -89,7 +90,7 @@ The server, GCP, and anyone with bucket or DB access see only ciphertext for mem
 metadata: timestamps, sizes, counts, pinned, visibility, relations, and reactions. Caveat: the server ships the web app,
 so a compromised server could ship JS that steals the passphrase. That is true of every browser-based E2EE app.
 
-### Keys (same design as hopnote, which already has tested code in `web/src/crypto`)
+### Keys (same design as hopnote; its `web/src/crypto` suite passes, 14 of 14 tests on 2026-10-10)
 
 - Random 256-bit master key (MK) per user.
 - Passphrase -> Argon2id (64 MiB, t=3) -> KEK, wraps MK with AES-256-GCM.
