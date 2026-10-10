@@ -43,12 +43,23 @@ func TestSpacePayloadRoundTrip(t *testing.T) {
 	require.Equal(t, "leaf", space.Payload.GetIcon().GetLucide())
 	require.Equal(t, title, space.Title)
 	var raw string
-	require.NoError(t, ts.GetDriver().GetDB().QueryRowContext(ctx, "SELECT payload FROM space WHERE uid = 'icon-space'").Scan(&raw))
+	readPayload := func() {
+		if getDriverFromEnv() == "firestore" {
+			doc, err := firestoreRaw(t, ts).RawDocument(ctx, "space", map[string]any{"uid": "icon-space"})
+			require.NoError(t, err)
+			var ok bool
+			raw, ok = doc["payload"].(string)
+			require.True(t, ok, "payload must be stored as a string")
+			return
+		}
+		require.NoError(t, ts.GetDriver().GetDB().QueryRowContext(ctx, "SELECT payload FROM space WHERE uid = 'icon-space'").Scan(&raw))
+	}
+	readPayload()
 	require.JSONEq(t, `{"icon":{"lucide":"leaf"}}`, raw)
 
 	space, err = ts.UpdateSpace(ctx, &store.UpdateSpace{ID: space.ID, Payload: &storepb.SpacePayload{}}, owner.ID)
 	require.NoError(t, err)
 	require.Nil(t, space.Payload.GetIcon())
-	require.NoError(t, ts.GetDriver().GetDB().QueryRowContext(ctx, "SELECT payload FROM space WHERE uid = 'icon-space'").Scan(&raw))
+	readPayload()
 	require.JSONEq(t, `{}`, raw)
 }

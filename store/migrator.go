@@ -121,7 +121,14 @@ func (s *Store) Migrate(ctx context.Context) error {
 		return errors.Errorf("cannot downgrade schema version from %s to %s", instanceBasicSetting.SchemaVersion, currentSchemaVersion)
 	}
 	// Apply migrations if needed.
-	if order < 0 {
+	if initializer, nonSQL := schemaInitializer(s.driver); order < 0 && nonSQL {
+		if err := initializer.InitializeSchema(ctx); err != nil {
+			return errors.Wrap(err, "failed to update schema")
+		}
+		if err := s.updateCurrentSchemaVersion(ctx, currentSchemaVersion); err != nil {
+			return errors.Wrap(err, "failed to update current schema version")
+		}
+	} else if order < 0 {
 		if err := s.applyMigrations(ctx, instanceBasicSetting.SchemaVersion, currentSchemaVersion); err != nil {
 			return errors.Wrap(err, "failed to apply migrations")
 		}
@@ -231,6 +238,20 @@ func (s *Store) preMigrate(ctx context.Context) error {
 	}
 
 	if !initialized {
+		if initializer, ok := schemaInitializer(s.driver); ok {
+			if err := initializer.InitializeSchema(ctx); err != nil {
+				return errors.Wrap(err, "failed to initialize schema")
+			}
+			schemaVersion, err := s.GetCurrentSchemaVersion()
+			if err != nil {
+				return errors.Wrap(err, "failed to get current schema version")
+			}
+			slog.Info("database initialized successfully", slog.String("schemaVersion", schemaVersion))
+			if err := s.updateCurrentSchemaVersion(ctx, schemaVersion); err != nil {
+				return errors.Wrap(err, "failed to update current schema version")
+			}
+			return s.checkMinimumUpgradeVersion(ctx)
+		}
 		filePath := s.getMigrationBasePath() + LatestSchemaFileName
 		bytes, err := migrationFS.ReadFile(filePath)
 		if err != nil {
@@ -318,7 +339,29 @@ func (s *Store) seed(ctx context.Context) error {
 // migration versions (TestMigrationVersionsMatchAcrossDrivers enforces this),
 // so a driver never records a version whose SQL it has not executed.
 func (s *Store) GetCurrentSchemaVersion() (string, error) {
+	if _, ok := schemaInitializer(s.driver); ok {
+		// Non-SQL drivers track the newest schema of any SQL driver: their
+		// documents are created with every current field.
+		return s.latestSchemaVersionAcrossDrivers()
+	}
 	files, err := s.listMigrationFiles()
+	if err != nil {
+		return "", err
+	}
+	if len(files) == 0 {
+		return baselineSchemaVersion, nil
+	}
+	latest := files[len(files)-1]
+	if compareParsedSchemaVersions(latest.parsed, mustParseSchemaVersion(baselineSchemaVersion)) < 0 {
+		return baselineSchemaVersion, nil
+	}
+	return latest.version, nil
+}
+
+// latestSchemaVersionAcrossDrivers returns the newest schema version shipped
+// by the SQLite driver, which every SQL driver must match.
+func (*Store) latestSchemaVersionAcrossDrivers() (string, error) {
+	files, err := listMigrationFilesFrom(migrationFS, "migration/sqlite/")
 	if err != nil {
 		return "", err
 	}

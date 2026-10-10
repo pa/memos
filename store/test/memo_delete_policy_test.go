@@ -152,6 +152,7 @@ func newMemoDeleteRaceFixture(t *testing.T) *memoDeleteRaceFixture {
 }
 
 func TestDeleteMemoWithPolicyBlocksNewRepliesDuringSubtreeDeletion(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	driver := getDriverFromEnv()
 	if driver == "sqlite" || driver == "d1" {
 		t.Skip("SQLite serializes writes with IMMEDIATE transactions; D1 has no row locks")
@@ -220,6 +221,7 @@ func TestDeleteMemoWithPolicyBlocksNewRepliesDuringSubtreeDeletion(t *testing.T)
 }
 
 func TestDeleteMemoWithPolicyIncludesReplyCommittedWhileWaitingForSubtree(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	driver := getDriverFromEnv()
 	if driver == "sqlite" || driver == "d1" {
 		t.Skip("SQLite serializes writes with IMMEDIATE transactions; D1 has no row locks")
@@ -339,6 +341,7 @@ func TestMemoDeleteActorCanReadAudienceMatrix(t *testing.T) {
 }
 
 func TestDeleteMemoWithPolicySnapshotsCurrentAudience(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	ctx := context.Background()
 	ts := NewTestingStore(ctx, t)
 	defer ts.Close()

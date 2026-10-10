@@ -14,6 +14,7 @@ import (
 // Table names are fixed by the tests, never supplied by application input.
 func rejectStoreDelete(t *testing.T, ts *store.Store, table string) func() {
 	t.Helper()
+	skipRawSQLOnFirestore(t)
 	var statements []string
 	drop := "DROP TRIGGER reject_store_delete"
 	switch getDriverFromEnv() {

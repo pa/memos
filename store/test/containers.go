@@ -267,6 +267,7 @@ func TerminateContainers() {
 	if container := postgresContainer.Load(); container != nil {
 		_ = container.Terminate(ctx)
 	}
+	terminateMongoContainer(ctx)
 	if network := testDockerNetwork.Load(); network != nil {
 		_ = network.Remove(ctx)
 	}

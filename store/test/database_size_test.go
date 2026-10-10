@@ -15,5 +15,9 @@ func TestGetDatabaseSize(t *testing.T) {
 
 	size, err := ts.GetDriver().GetDatabaseSize(ctx)
 	require.NoError(t, err)
+	if getDriverFromEnv() == "firestore" {
+		require.Equal(t, int64(-1), size, "Firestore cannot report a database size")
+		return
+	}
 	require.Greater(t, size, int64(0), "expected database size > 0")
 }

@@ -231,6 +231,7 @@ func TestAttachmentAccessScopeSpaceAudienceHasNoMemoAuthorBypass(t *testing.T) {
 }
 
 func TestAttachmentAccessScopeAllowsArchivedMemoCreatorAndFiltersMissingCreator(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	ctx := context.Background()
 	ts := NewTestingStore(ctx, t)
 	defer ts.Close()

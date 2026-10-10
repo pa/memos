@@ -168,6 +168,7 @@ func TestMemoMutationRollsBackAfterAttachmentWrites(t *testing.T) {
 }
 
 func TestMemoMutationRollsBackAfterReferenceInsertFailure(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	f := newMemoMutationFixture(t)
 	first, err := f.store.CreateMemo(f.ctx, &store.Memo{
 		UID: "first-replacement", CreatorID: f.owner.ID, Content: "replacement", Visibility: store.Private,

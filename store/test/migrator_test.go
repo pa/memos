@@ -37,6 +37,7 @@ func requireQueryError(ctx context.Context, t *testing.T, db *sql.DB, query, mes
 // TestFreshInstall verifies that LATEST.sql applies correctly on a fresh database.
 // This is essentially what NewTestingStore already does, but we make it explicit.
 func TestFreshInstall(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	t.Parallel()
 	ctx := context.Background()
 

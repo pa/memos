@@ -138,7 +138,11 @@ func TestSpaceStoreInvitationLifecycle(t *testing.T) {
 	if getDriverFromEnv() == "postgres" {
 		insertUnknownStatus = "INSERT INTO space_member (space_id, user_id, status, role) VALUES ($1, $2, 'UNKNOWN', 'ADMIN')"
 	}
-	_, err = ts.GetDriver().GetDB().ExecContext(ctx, insertUnknownStatus, space.ID, outsider.ID)
+	if getDriverFromEnv() == "firestore" {
+		err = firestoreRaw(t, ts).InsertRawDocument(ctx, "space_member", map[string]any{"space_id": space.ID, "user_id": outsider.ID, "status": "UNKNOWN", "role": "ADMIN"})
+	} else {
+		_, err = ts.GetDriver().GetDB().ExecContext(ctx, insertUnknownStatus, space.ID, outsider.ID)
+	}
 	require.NoError(t, err, "status validation belongs to Store logic, not a database CHECK")
 	spaces, err = ts.ListSpaces(ctx, &store.FindSpace{MemberUserID: &outsider.ID})
 	require.NoError(t, err)
@@ -195,6 +199,11 @@ func TestDeleteUserCleansPendingSpaceInvitations(t *testing.T) {
 	_, err = ts.DeleteUser(ctx, &store.DeleteUser{ID: invitee.ID})
 	require.NoError(t, err, "a pending invitation must not block account deletion")
 
+	if getDriverFromEnv() == "firestore" {
+		require.Zero(t, countFirestoreDocs(ctx, t, ts, "space_member", map[string]any{"space_id": space.ID, "user_id": invitee.ID}),
+			"account deletion must remove its pending invitation row")
+		return
+	}
 	query := "SELECT COUNT(*) FROM space_member WHERE space_id = ? AND user_id = ?"
 	if getDriverFromEnv() == "postgres" {
 		query = "SELECT COUNT(*) FROM space_member WHERE space_id = $1 AND user_id = $2"

@@ -154,6 +154,9 @@ func requireUpgradePreservesData(ctx context.Context, t *testing.T, previous *st
 // schema for the given Memos version, plus the DSN the host uses to reach it.
 func prepareUpgradeFixture(t *testing.T, driver, version string) (MemosContainerConfig, string) {
 	t.Helper()
+	if driver == "firestore" {
+		t.Skip("released Memos binaries predate the Firestore driver; there is nothing to upgrade from")
+	}
 
 	switch driver {
 	case "sqlite":

@@ -67,6 +67,7 @@ func TestMemoAccessScopeUsesEachMemoAudience(t *testing.T) {
 }
 
 func TestMemoAccessScopeUsesAudienceForInvalidLocalPlacement(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	ctx := context.Background()
 	ts := NewTestingStore(ctx, t)
 	defer ts.Close()
@@ -162,6 +163,7 @@ func TestMemoAccessScopeArchivedRowsRemainAuthorOnly(t *testing.T) {
 }
 
 func TestMemoAccessScopeAllowsArchivedCreatorButFiltersMissingCreatorBeforePagination(t *testing.T) {
+	skipRawSQLOnFirestore(t)
 	ctx := context.Background()
 	ts := NewTestingStore(ctx, t)
 	defer ts.Close()

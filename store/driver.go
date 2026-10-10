@@ -3,7 +3,42 @@ package store
 import (
 	"context"
 	"database/sql"
+	"reflect"
 )
+
+// SchemaInitializer is implemented by drivers that are not backed by SQL. The
+// migrator calls InitializeSchema instead of executing LATEST.sql and skips
+// SQL migration files, which such drivers do not have.
+type SchemaInitializer interface {
+	InitializeSchema(ctx context.Context) error
+}
+
+// schemaInitializer returns the driver's SchemaInitializer, looking through
+// wrappers that embed a Driver in a field named Driver (as test doubles do).
+func schemaInitializer(driver Driver) (SchemaInitializer, bool) {
+	for range 8 {
+		if initializer, ok := driver.(SchemaInitializer); ok {
+			return initializer, true
+		}
+		value := reflect.ValueOf(driver)
+		if value.Kind() == reflect.Pointer {
+			value = value.Elem()
+		}
+		if value.Kind() != reflect.Struct {
+			return nil, false
+		}
+		field := value.FieldByName("Driver")
+		if !field.IsValid() || field.IsNil() {
+			return nil, false
+		}
+		inner, ok := field.Interface().(Driver)
+		if !ok {
+			return nil, false
+		}
+		driver = inner
+	}
+	return nil, false
+}
 
 // Driver is an interface for store driver.
 // It contains all methods that store database driver should implement.

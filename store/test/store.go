@@ -105,6 +105,8 @@ func getTestingProfileForDriver(t *testing.T, driver string) *profile.Profile {
 		dsn = GetMySQLDSN(t)
 	case "postgres":
 		dsn = GetPostgresDSN(t)
+	case "firestore":
+		dsn = GetFirestoreDSN(t)
 	default:
 		t.Fatalf("unsupported driver: %s", driver)
 	}
@@ -124,6 +126,16 @@ func getDriverFromEnv() string {
 		driver = "sqlite"
 	}
 	return driver
+}
+
+// skipRawSQLOnFirestore skips tests that open SQL connections to inject rows
+// or hold SQL row locks. The Firestore driver has no SQL handle; its
+// equivalents are covered through the store API.
+func skipRawSQLOnFirestore(t *testing.T) {
+	t.Helper()
+	if getDriverFromEnv() == "firestore" {
+		t.Skip("test needs a raw SQL connection, which the Firestore driver does not have")
+	}
 }
 
 // skipRegexFiltersOnD1 skips tests whose matches() patterns go beyond
