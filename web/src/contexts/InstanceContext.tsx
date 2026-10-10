@@ -277,3 +277,12 @@ export function useInstance() {
   }
   return context;
 }
+
+/**
+ * Whether the instance runs in private mode (invite-only, PRIVATE/SPACE memos,
+ * no share links). Safe outside the provider, where it reports false, so leaf
+ * components can read it without requiring the full instance context.
+ */
+export function useIsPrivateInstance(): boolean {
+  return useContext(InstanceContext)?.profile?.privateInstance ?? false;
+}

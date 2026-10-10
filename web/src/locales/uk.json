@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Створіть обліковий запис",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Новий пароль",
     "redirecting-to-provider": "Перенаправлення до {{provider}}…",
     "repeat-new-password": "Повторіть новий пароль",
@@ -426,6 +427,10 @@
       "delete-warning-description": "ЦЯ ДІЯ Є НЕВІДКЛИКНОЮ",
       "label": "Учасник",
       "list-title": "Список учасників",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} успішно відновлено",
       "user": "Користувач",
       "no-members-found": "Учасників не знайдено",

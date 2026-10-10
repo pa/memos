@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { FieldMaskSchema } from "@bufbuild/protobuf/wkt";
 import { sortBy } from "lodash-es";
-import { MoreVerticalIcon, PlusIcon } from "lucide-react";
+import { MoreVerticalIcon, PlusIcon, UserPlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -18,6 +18,7 @@ import { State } from "@/types/proto/api/common_pb";
 import { User, User_Role } from "@/types/proto/api/user_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import CreateUserDialog from "../CreateUserDialog";
+import InviteUserDialog from "../InviteUserDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import SettingSection from "./SettingSection";
 import SettingTable from "./SettingTable";
@@ -28,6 +29,7 @@ const MemberSection = () => {
   const { data: users = [], refetch: refetchUsers } = useListUsers();
   const deleteUserMutation = useDeleteUser();
   const createDialog = useDialog();
+  const inviteDialog = useDialog();
   const editDialog = useDialog();
   const [editingUser, setEditingUser] = useState<User | undefined>();
   const sortedUsers = useMemo(() => sortBy(users, "id"), [users]);
@@ -109,10 +111,16 @@ const MemberSection = () => {
     <SettingSection
       title={t("setting.member.list-title")}
       actions={
-        <Button onClick={handleCreateUser}>
-          <PlusIcon className="w-4 h-4 mr-2" />
-          {t("common.create")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={inviteDialog.open}>
+            <UserPlusIcon className="w-4 h-4 mr-2" />
+            {t("setting.member.invite")}
+          </Button>
+          <Button onClick={handleCreateUser}>
+            <PlusIcon className="w-4 h-4 mr-2" />
+            {t("common.create")}
+          </Button>
+        </div>
       }
     >
       <SettingTable
@@ -195,6 +203,7 @@ const MemberSection = () => {
 
       {/* Create User Dialog */}
       <CreateUserDialog open={createDialog.isOpen} onOpenChange={createDialog.setOpen} onSuccess={refetchUsers} />
+      <InviteUserDialog open={inviteDialog.isOpen} onOpenChange={inviteDialog.setOpen} />
 
       {/* Edit User Dialog */}
       <CreateUserDialog open={editDialog.isOpen} onOpenChange={editDialog.setOpen} user={editingUser} onSuccess={refetchUsers} />

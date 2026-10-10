@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Susikurkite paskyrą",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Naujas slaptažodis",
     "redirecting-to-provider": "Nukreipiama į {{provider}}…",
     "repeat-new-password": "Pakartokite naują slaptažodį",
@@ -509,6 +510,10 @@
       "delete-warning-description": "ŠIS VEIKSMAS YRA NEGRĮŽTAMAS",
       "label": "narys",
       "list-title": "Narių sąrašas",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "narys",
       "restore-success": "{{username}} sėkmingai atkurtas",
       "summary-column": "Santrauka",

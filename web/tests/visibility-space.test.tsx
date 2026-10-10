@@ -67,3 +67,20 @@ describe("assignable visibility options", () => {
     expect(values(DEFAULT_VISIBILITY_OPTIONS)).not.toContain(Visibility.SPACE);
   });
 });
+
+describe("private instance audiences", () => {
+  it("offers only PRIVATE, and SPACE inside a Space", () => {
+    expect(values(getAssignableVisibilityOptions({ hasSpacePlacement: false, privateInstance: true }))).toEqual([Visibility.PRIVATE]);
+    expect(values(getAssignableVisibilityOptions({ hasSpacePlacement: true, privateInstance: true }))).toEqual([
+      Visibility.PRIVATE,
+      Visibility.SPACE,
+    ]);
+    expect(values(getAssignableVisibilityOptions({ hasSpacePlacement: false, current: Visibility.PUBLIC, privateInstance: true }))).toEqual(
+      [Visibility.PRIVATE],
+    );
+  });
+
+  it("keeps every audience on an open instance", () => {
+    expect(values(getAssignableVisibilityOptions({ hasSpacePlacement: true }))).toEqual(values(VISIBILITY_OPTIONS));
+  });
+});

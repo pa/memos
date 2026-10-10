@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "अपना खाता बनाएं",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "नया पासवर्ड",
     "redirecting-to-provider": "{{provider}} पर भेजा जा रहा है…",
     "repeat-new-password": "नया पासवर्ड दोहराएं",
@@ -355,6 +356,10 @@
       "user": "उपयोगकर्ता",
       "label": "सदस्य",
       "list-title": "सदस्य सूची",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "no-members-found": "कोई सदस्य नहीं मिला",
       "archived": "संग्रहीत",
       "member-column": "सदस्य",

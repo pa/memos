@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Buat akun Anda",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Kata sandi baru",
     "redirecting-to-provider": "Mengalihkan ke {{provider}}…",
     "repeat-new-password": "Ulangi kata sandi baru",
@@ -355,6 +356,10 @@
       "user": "Pengguna",
       "label": "Anggota",
       "list-title": "Daftar Anggota",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "no-members-found": "Tidak ada anggota yang ditemukan",
       "archived": "Diarsipkan",
       "member-column": "Anggota",

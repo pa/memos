@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Δημιουργήστε τον λογαριασμό σας",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Νέος κωδικός πρόσβασης",
     "redirecting-to-provider": "Ανακατεύθυνση στο {{provider}}…",
     "repeat-new-password": "Επαναλάβετε τον νέο κωδικό πρόσβασης",
@@ -509,6 +510,10 @@
       "delete-warning-description": "ΑΥΤΗ Η ΕΝΕΡΓΕΙΑ ΕΙΝΑΙ ΜΗ ΑΝΤΙΣΤΡΕΦΗ",
       "label": "Μέλος",
       "list-title": "Λίστα μελών",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Μέλος",
       "restore-success": "Το {{username}} αποκαταστάθηκε με επιτυχία",
       "summary-column": "Περίληψη",

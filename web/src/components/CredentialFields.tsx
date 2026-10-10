@@ -8,12 +8,23 @@ interface Props {
   password: string;
   passwordAutoComplete: "current-password" | "new-password";
   readOnly?: boolean;
+  /** Locks only the username, e.g. when an invite link fixes it. */
+  usernameReadOnly?: boolean;
   onUsernameChange: (username: string) => void;
   onPasswordChange: (password: string) => void;
 }
 
 // Username + password field pair shared by the sign-in and sign-up forms.
-const CredentialFields = ({ idPrefix, username, password, passwordAutoComplete, readOnly, onUsernameChange, onPasswordChange }: Props) => {
+const CredentialFields = ({
+  idPrefix,
+  username,
+  password,
+  passwordAutoComplete,
+  readOnly,
+  usernameReadOnly,
+  onUsernameChange,
+  onPasswordChange,
+}: Props) => {
   const t = useTranslate();
 
   return (
@@ -23,7 +34,7 @@ const CredentialFields = ({ idPrefix, username, password, passwordAutoComplete, 
         <Input
           id={`${idPrefix}-username`}
           type="text"
-          readOnly={readOnly}
+          readOnly={readOnly || usernameReadOnly}
           placeholder={t("common.username")}
           value={username}
           autoComplete="username"

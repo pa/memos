@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "შექმენით თქვენი ანგარიში",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "ახალი პაროლი",
     "redirecting-to-provider": "გადამისამართება {{provider}}-ზე…",
     "repeat-new-password": "გაიმეორეთ ახალი პაროლი",
@@ -426,6 +427,10 @@
       "delete-warning-description": "ეს ქმედება შეუქცევადია",
       "label": "წევრი",
       "list-title": "წევრების სია",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} წარმატებით აღდგა",
       "user": "მომხმარებელი",
       "no-members-found": "წევრები ვერ მოიძებნა",

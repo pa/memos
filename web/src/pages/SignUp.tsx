@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { InfoIcon, LoaderIcon, LockIcon, SparklesIcon, UserRoundXIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useSearchParams } from "react-router-dom";
 import { setAccessToken } from "@/auth-state";
@@ -26,7 +26,6 @@ const SignUp = () => {
   const t = useTranslate();
   const navigateTo = useNavigateTo();
   const actionBtnLoadingState = useLoading(false);
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [challengeResetKey, setChallengeResetKey] = useState(0);
@@ -35,9 +34,13 @@ const SignUp = () => {
   const [searchParams] = useSearchParams();
   const redirectTarget = getSafeRedirectPath(searchParams.get(AUTH_REDIRECT_PARAM));
   const signInPath = appendSearchParams(ROUTES.AUTH, searchParams);
+  // An admin invite link carries a signed token naming the invited username.
+  const inviteToken = searchParams.get(INVITE_PARAM) ?? "";
+  const invitedUsername = useMemo(() => readInvitedUsername(inviteToken), [inviteToken]);
+  const [username, setUsername] = useState(invitedUsername);
 
   const passwordAuthAllowed = !instanceGeneralSetting.disallowPasswordAuth;
-  const registrationOpen = !instanceGeneralSetting.disallowUserRegistration;
+  const registrationOpen = !instanceGeneralSetting.disallowUserRegistration || invitedUsername !== "";
   const needsSetup = profile.needsSetup;
   // Provider buttons only render on the SSO-provisioned branch below; skip the request elsewhere.
   const {
@@ -68,7 +71,7 @@ const SignUp = () => {
       // The token is spent by createUser; the sign-in that follows is not a
       // credential guess, and the server does not ask for a second one there.
       const callOptions = challengeToken ? { headers: { [CHALLENGE_TOKEN_HEADER]: challengeToken } } : undefined;
-      await userServiceClient.createUser({ user }, callOptions);
+      await userServiceClient.createUser({ user, inviteToken: invitedUsername ? inviteToken : "" }, callOptions);
       const response = await authServiceClient.signIn(
         {
           credentials: {
@@ -106,6 +109,7 @@ const SignUp = () => {
         password={password}
         passwordAutoComplete="new-password"
         readOnly={actionBtnLoadingState.isLoading}
+        usernameReadOnly={invitedUsername !== ""}
         onUsernameChange={setUsername}
         onPasswordChange={setPassword}
       />
@@ -182,13 +186,35 @@ const SignUp = () => {
     );
   }
 
-  // Open registration.
+  // Open registration, or an invite link.
   return (
-    <AuthPageLayout title={t("auth.create-your-account")}>
+    <AuthPageLayout
+      title={t("auth.create-your-account")}
+      subtitle={invitedUsername ? t("auth.invite-subtitle", { username: invitedUsername }) : undefined}
+    >
       {signUpForm}
       {signInPrompt}
     </AuthPageLayout>
   );
+};
+
+const INVITE_PARAM = "invite";
+
+/**
+ * Reads the invited username from an invite token without verifying it. The
+ * server verifies the signature on sign-up; this only pre-fills the form.
+ */
+const readInvitedUsername = (token: string): string => {
+  const payload = token.split(".")[1];
+  if (!payload) {
+    return "";
+  }
+  try {
+    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return json?.type === "invite" && typeof json.username === "string" ? json.username : "";
+  } catch {
+    return "";
+  }
 };
 
 export default SignUp;

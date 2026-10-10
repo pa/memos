@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Crea el teu compte",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Nova contrasenya",
     "redirecting-to-provider": "S’està redirigint a {{provider}}…",
     "repeat-new-password": "Repeteix la contrasenya",
@@ -426,6 +427,10 @@
       "delete-warning-description": "AQUESTA ACció ÉS IRREVERSIBLE",
       "label": "Membre",
       "list-title": "Llista de membres",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} restaurat correctament",
       "user": "Usuari",
       "no-members-found": "No s'han trobat membres",

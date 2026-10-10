@@ -46,6 +46,7 @@
     "continue-with": "使用 {{provider}} 继续",
     "create-admin-account": "创建管理员账号",
     "create-your-account": "创建您的账户",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "explore-public-memos": "浏览此实例上的公开 Memo",
     "first-run": "首次运行",
     "new-password": "新密码",
@@ -388,6 +389,10 @@
       "user": "普通用户",
       "label": "成员",
       "list-title": "成员列表",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "成员",
       "summary-column": "摘要",
       "no-members-found": "没有找到会员"

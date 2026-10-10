@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Skapa ditt konto",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Nytt lösenord",
     "redirecting-to-provider": "Omdirigerar till {{provider}}…",
     "repeat-new-password": "Upprepa det nya lösenordet",
@@ -426,6 +427,10 @@
       "delete-warning-description": "DENNA ÅTGÄRD ÄR OÅTERKALLELIG",
       "label": "Medlem",
       "list-title": "Medlemslista",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} återställdes framgångsrikt",
       "user": "Användare",
       "no-members-found": "Inga medlemmar hittades",

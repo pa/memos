@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Tạo tài khoản của bạn",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Mật khẩu mới",
     "redirecting-to-provider": "Đang chuyển hướng đến {{provider}}…",
     "repeat-new-password": "Nhập lại mật khẩu mới",
@@ -355,6 +356,10 @@
       "user": "Người dùng",
       "label": "Thành viên",
       "list-title": "Danh sách thành viên",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "no-members-found": "Không tìm thấy thành viên nào",
       "archived": "Đã lưu trữ",
       "member-column": "Thành viên",

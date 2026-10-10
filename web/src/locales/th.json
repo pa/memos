@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "สร้างบัญชีใหม่",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "รหัสผ่านใหม่",
     "redirecting-to-provider": "กำลังเปลี่ยนเส้นทางไปยัง {{provider}}…",
     "repeat-new-password": "รหัสผ่านใหม่อีกครั้ง",
@@ -355,6 +356,10 @@
       "user": "ผู้ใช้",
       "label": "สมาชิก",
       "list-title": "รายชื่อสมาชิก",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "no-members-found": "ไม่พบสมาชิก",
       "archived": "เก็บถาวรแล้ว",
       "member-column": "สมาชิก",

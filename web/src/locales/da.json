@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Opret din konto",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Ny adgangskode",
     "redirecting-to-provider": "Omdirigerer til {{provider}}…",
     "repeat-new-password": "Gentag den nye adgangskode",
@@ -509,6 +510,10 @@
       "delete-warning-description": "DENNE HANDLING ER IRREVERSIBEL",
       "label": "Medlem",
       "list-title": "Medlemsliste",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Medlem",
       "restore-success": "{{username}} gendannet med succes",
       "summary-column": "Oversigt",

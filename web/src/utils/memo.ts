@@ -62,13 +62,25 @@ export const getVisibilityOption = (visibility: Visibility): VisibilityOption | 
 /**
  * Audiences a memo can be set to. SPACE is offered when the memo is placed in a
  * Space, and also when a legacy/inconsistent memo already uses it so the control
- * can still name its current audience instead of silently downgrading it.
+ * can still name its current audience instead of silently downgrading it. A
+ * private instance offers only PRIVATE and SPACE.
  */
-export const getAssignableVisibilityOptions = (options: { hasSpacePlacement: boolean; current?: Visibility }): VisibilityOption[] =>
-  VISIBILITY_OPTIONS.filter((option) => !option.requiresSpace || options.hasSpacePlacement || option.value === options.current);
+export const getAssignableVisibilityOptions = (options: {
+  hasSpacePlacement: boolean;
+  current?: Visibility;
+  privateInstance?: boolean;
+}): VisibilityOption[] =>
+  VISIBILITY_OPTIONS.filter(
+    (option) =>
+      (!options.privateInstance || isPrivateInstanceVisibility(option.value)) &&
+      (!option.requiresSpace || options.hasSpacePlacement || option.value === options.current),
+  );
 
 /** Audiences offered as a persistent default. A Space-scoped default has no meaning outside a Space. */
 export const DEFAULT_VISIBILITY_OPTIONS: readonly VisibilityOption[] = VISIBILITY_OPTIONS.filter((option) => !option.requiresSpace);
+
+/** Whether a private instance allows the audience. */
+export const isPrivateInstanceVisibility = (visibility: Visibility) => visibility === Visibility.PRIVATE || visibility === Visibility.SPACE;
 
 export const convertVisibilityFromString = (visibility: string) =>
   VISIBILITY_OPTIONS.find((option) => option.name === visibility)?.value ?? Visibility.PUBLIC;

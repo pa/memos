@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Maak je account",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Nieuw wachtwoord",
     "redirecting-to-provider": "Doorsturen naar {{provider}}…",
     "repeat-new-password": "Nieuw wachtwoord herhalen",
@@ -426,6 +427,10 @@
       "delete-warning-description": "DEZE ACTIE IS NIET TERUG TE DRAAIEN",
       "label": "Gebruiker",
       "list-title": "Gebruikers",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} succesvol teruggezet",
       "user": "Gebruiker",
       "no-members-found": "Geen leden gevonden",

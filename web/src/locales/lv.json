@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Izveidojiet savu kontu",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Jauna parole",
     "redirecting-to-provider": "Pāradresēšana uz {{provider}}…",
     "repeat-new-password": "Atkārtojiet jauno paroli",
@@ -509,6 +510,10 @@
       "delete-warning-description": "ŠĪ DARBĪBA IR NEATgriezeniska",
       "label": "Biedrs",
       "list-title": "Dalībnieku saraksts",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Biedrs",
       "restore-success": "{{username}} ir veiksmīgi atjaunots",
       "summary-column": "Kopsavilkums",

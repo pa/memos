@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Create your account",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "New password",
     "redirecting-to-provider": "Redirecting to {{provider}}…",
     "repeat-new-password": "Repeat the new password",
@@ -426,6 +427,10 @@
       "delete-warning-description": "THIS ACTION IS IRREVERSIBLE",
       "label": "Member",
       "list-title": "Member list",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} restored successfully",
       "user": "User",
       "no-members-found": "No members found",

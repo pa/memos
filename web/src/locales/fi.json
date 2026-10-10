@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Luo tili",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Uusi salasana",
     "redirecting-to-provider": "Ohjataan palveluun {{provider}}…",
     "repeat-new-password": "Toista uusi salasana",
@@ -509,6 +510,10 @@
       "delete-warning-description": "TÄMÄ TOIMINTA ON PERUUTTAMATON",
       "label": "Jäsen",
       "list-title": "Jäsenluettelo",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Jäsen",
       "restore-success": "{{username}} palautettiin onnistuneesti",
       "summary-column": "Yhteenveto",

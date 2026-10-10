@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Creați-vă contul",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Parolă Nouă",
     "redirecting-to-provider": "Se redirecționează către {{provider}}…",
     "repeat-new-password": "Repetați noua parolă",
@@ -509,6 +510,10 @@
       "delete-warning-description": "ACEASTA ACȚIUNE ESTE IRREVERSIBILĂ",
       "label": "Membru",
       "list-title": "Lista de membri",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Membru",
       "restore-success": "{{username}} a fost restaurat cu succes",
       "summary-column": "Rezumat",

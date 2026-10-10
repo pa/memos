@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Crea a túa conta",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Novo contrasinal",
     "redirecting-to-provider": "Redirixindo a {{provider}}…",
     "repeat-new-password": "Repite o novo contrasinal",
@@ -426,6 +427,10 @@
       "delete-warning-description": "ESTA ACCIÓN NON É REVERSIBLE",
       "label": "Usuaria",
       "list-title": "Lista de usuarias",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "{{username}} restablecida correctamente",
       "user": "Usuaria",
       "no-members-found": "Non se atopou ningún membro",

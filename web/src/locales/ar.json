@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "أنشئ حسابك",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "كلمة المرور الجديدة",
     "redirecting-to-provider": "جارٍ إعادة التوجيه إلى {{provider}}…",
     "repeat-new-password": "أعد كلمة المرور الجديدة",
@@ -355,6 +356,10 @@
       "user": "مستخدم",
       "label": "عضو",
       "list-title": "قائمة الأعضاء",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "no-members-found": "لم يتم العثور على أعضاء",
       "archived": "المؤرشفة",
       "member-column": "عضو",

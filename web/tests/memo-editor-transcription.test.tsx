@@ -15,6 +15,7 @@ vi.mock("@/contexts/InstanceContext", () => ({
     aiSetting: { providers: [{ id: "configured", apiKeySet: true }], transcription: { providerId: "configured" } },
     fetchSetting: vi.fn().mockResolvedValue(undefined),
   }),
+  useIsPrivateInstance: () => false,
 }));
 vi.mock("@/contexts/NewMemoContext", () => ({ useNewMemo: () => ({ markNewMemo: vi.fn() }) }));
 const clients = vi.hoisted(() => ({ getMemo: vi.fn(), updateMemo: vi.fn(), listMemoAttachments: vi.fn() }));

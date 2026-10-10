@@ -2,6 +2,7 @@ import { isEqual } from "lodash-es";
 import { ListTodoIcon, ZapIcon } from "lucide-react";
 import { type RefObject, useId, useLayoutEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
+import { useIsPrivateInstance } from "@/contexts/InstanceContext";
 import { MAX_MEMO_SUGGESTIONS, type MemoSuggestion, type SuggestionItem } from "@/lib/memo-suggestions";
 import { cn } from "@/lib/utils";
 import { useTranslate } from "@/utils/i18n";
@@ -66,6 +67,7 @@ export function EditorSuggestions({
   const acceptedIds = useEditorSelector((state) => state.acceptedSuggestionIds);
   const isSaving = useEditorSelector((state) => state.ui.isLoading.saving);
   const visibility = useEditorSelector((state) => state.metadata.visibility);
+  const privateInstance = useIsPrivateInstance();
   const [tags, setTags] = useState<string[]>([]);
   const [hasChecklist, setHasChecklist] = useState(false);
   const needsTags = suggestions.some((suggestion) => suggestion.kind === "tag");
@@ -84,7 +86,11 @@ export function EditorSuggestions({
 
   if (!content.trim()) return null;
 
-  const visibilityOptions = getAssignableVisibilityOptions({ hasSpacePlacement: Boolean(space), current: visibility });
+  const visibilityOptions = getAssignableVisibilityOptions({
+    hasSpacePlacement: Boolean(space),
+    current: visibility,
+    privateInstance,
+  });
   const visible = suggestions
     .filter((suggestion) => {
       if (acceptedIds.includes(suggestion.id)) return false;

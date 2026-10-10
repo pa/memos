@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import VisibilityIcon from "@/components/VisibilityIcon";
+import { useIsPrivateInstance } from "@/contexts/InstanceContext";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useSpaces } from "@/hooks/useSpaceQueries";
 import { extractSpaceUidFromName, getDuplicateSpaceTitles } from "@/lib/space-display";
@@ -31,8 +32,13 @@ import type { AudienceMenuProps } from "../types";
 const AudienceMenu = ({ value, onChange, space, onSpaceChange, disabled }: AudienceMenuProps) => {
   const t = useTranslate();
   const user = useCurrentUser();
+  const privateInstance = useIsPrivateInstance();
   const { data: spaces = [], isPending, isError, refetch } = useSpaces(user?.name, { enabled: Boolean(onSpaceChange) });
-  const visibilityOptions = getAssignableVisibilityOptions({ hasSpacePlacement: Boolean(space), current: value });
+  const visibilityOptions = getAssignableVisibilityOptions({
+    hasSpacePlacement: Boolean(space),
+    current: value,
+    privateInstance,
+  });
   const currentOption = getVisibilityOption(value);
   const visibilityLabel = currentOption ? t(currentOption.labelKey) : "";
   const duplicates = getDuplicateSpaceTitles(spaces);

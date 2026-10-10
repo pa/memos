@@ -108,6 +108,7 @@ const MemoDetailSidebar = ({
   const canComment = !!onCommentCreate && !forceReadonly && !!currentUser && memo.state === State.NORMAL;
   const canManageShares =
     !forceReadonly &&
+    !profile.privateInstance &&
     !memo.parent &&
     canManageMemo(memo, currentUser) &&
     memo.state === State.NORMAL &&

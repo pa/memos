@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Vytvorte si účet",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Nové heslo",
     "redirecting-to-provider": "Presmerovanie na {{provider}}…",
     "repeat-new-password": "Zopakujte nové heslo",
@@ -509,6 +510,10 @@
       "delete-warning-description": "TÁTO AKCIA JE NEVRATNÁ",
       "label": "člen",
       "list-title": "Zoznam členov",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "člen",
       "restore-success": "{{username}} bol úspešne obnovený",
       "summary-column": "Zhrnutie",

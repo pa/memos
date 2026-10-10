@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Креирајте свој налог",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Нова лозинка",
     "redirecting-to-provider": "Преусмеравање на {{provider}}…",
     "repeat-new-password": "Поновите нову лозинку",
@@ -509,6 +510,10 @@
       "delete-warning-description": "ОВА АКЦИЈА ЈЕ НЕПОВРАТНА",
       "label": "Члан",
       "list-title": "Списак чланова",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Члан",
       "restore-success": "{{username}} је успешно враћен",
       "summary-column": "Резиме",

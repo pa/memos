@@ -5,9 +5,9 @@ export const isSuperUser = (user: User | undefined) => {
 };
 
 /**
- * Whether the user holds author-level authority over a memo: its creator, or an
- * instance admin, who is the superuser for named memo operations on the server.
+ * Whether the user holds author-level authority over a memo: only its creator.
+ * The instance admin role grants no access to other users' content.
  */
 export const canManageMemo = (memo: { creator: string }, user: User | undefined): boolean => {
-  return !!user && (memo.creator === user.name || !!isSuperUser(user));
+  return !!user && memo.creator === user.name;
 };

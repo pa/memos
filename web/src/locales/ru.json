@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Создание учетной записи",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Новый пароль",
     "redirecting-to-provider": "Перенаправление в {{provider}}…",
     "repeat-new-password": "Повторить новый пароль",
@@ -426,6 +427,10 @@
       "delete-warning-description": "ЭТО ДЕЙСТВИЕ НЕЛЬЗЯ ОТМЕНИТЬ",
       "label": "Пользователи",
       "list-title": "Список пользователей",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "restore-success": "Пользователь {{username}} успешно восстановлен",
       "user": "Пользователь",
       "no-members-found": "Участники не найдены",

@@ -3,10 +3,11 @@ import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsPrivateInstance } from "@/contexts/InstanceContext";
 import { useUpdateUserGeneralSetting } from "@/hooks/useUserQueries";
 import { UserSetting_GeneralSetting, UserSetting_GeneralSettingSchema } from "@/types/proto/api/user_service_pb";
 import { loadLocale, useTranslate } from "@/utils/i18n";
-import { convertVisibilityFromString, DEFAULT_VISIBILITY_OPTIONS } from "@/utils/memo";
+import { convertVisibilityFromString, DEFAULT_VISIBILITY_OPTIONS, isPrivateInstanceVisibility } from "@/utils/memo";
 import { loadTheme } from "@/utils/theme";
 import LocaleSelect from "../LocaleSelect";
 import ThemeSelect from "../ThemeSelect";
@@ -34,9 +35,14 @@ const PreferencesSection = () => {
     );
   };
 
+  const privateInstance = useIsPrivateInstance();
   const visibilityOptions = useMemo(
-    () => DEFAULT_VISIBILITY_OPTIONS.map((option) => ({ value: option.name, label: t(option.labelKey) })),
-    [t],
+    () =>
+      DEFAULT_VISIBILITY_OPTIONS.filter((option) => !privateInstance || isPrivateInstanceVisibility(option.value)).map((option) => ({
+        value: option.name,
+        label: t(option.labelKey),
+      })),
+    [t, privateInstance],
   );
 
   const handleDefaultMemoVisibilityChanged = (value: string) => {

@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Създайте своя акаунт",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Нова парола",
     "redirecting-to-provider": "Пренасочване към {{provider}}…",
     "repeat-new-password": "Повторете новата парола",
@@ -509,6 +510,10 @@
       "delete-warning-description": "ТОВА ДЕЙСТВИЕ Е НЕОБРАТИМО",
       "label": "Член",
       "list-title": "Списък с членове",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "Член",
       "restore-success": "{{username}} възстановен успешно",
       "summary-column": "Резюме",

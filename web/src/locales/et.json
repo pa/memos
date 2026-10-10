@@ -23,6 +23,7 @@
   },
   "auth": {
     "create-your-account": "Looge oma konto",
+    "invite-subtitle": "You were invited as {{username}}. Choose a password to finish.",
     "new-password": "Uus parool",
     "redirecting-to-provider": "Suunamine teenusesse {{provider}}…",
     "repeat-new-password": "Korrake uut parooli",
@@ -509,6 +510,10 @@
       "delete-warning-description": "SEE TEGEVUS ON Pöördumatu",
       "label": "liige",
       "list-title": "Liikmete nimekiri",
+      "invite": "Invite",
+      "invite-description": "Create a sign-up link for one person. It only works for this username and expires in 3 days.",
+      "invite-link": "Invite link",
+      "invite-title": "Invite someone",
       "member-column": "liige",
       "restore-success": "{{username}} taastati edukalt",
       "summary-column": "Kokkuvõte",

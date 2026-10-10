@@ -11,8 +11,8 @@ describe("canManageMemo", () => {
     expect(canManageMemo(memo, user("users/alice", User_Role.USER))).toBe(true);
   });
 
-  it("allows an instance admin as superuser", () => {
-    expect(canManageMemo(memo, user("users/root", User_Role.ADMIN))).toBe(true);
+  it("gives an instance admin no authority over another user's memo", () => {
+    expect(canManageMemo(memo, user("users/root", User_Role.ADMIN))).toBe(false);
   });
 
   it("denies other users and anonymous viewers", () => {
