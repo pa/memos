@@ -171,6 +171,10 @@ Proof of concept (2026-10-10, standard Web Crypto X25519 + HKDF + AES-GCM, Node 
 public key, Bob opened it with his private key and read a memo encrypted with `SK`, Carol's private key failed to open
 it, and replaying the sealed key into another Space was rejected by the AAD binding.
 
+Browser support: X25519 in Web Crypto ships in Firefox 130+, Safari 17+ and Chrome/Edge 137+, and a public measurement
+on 2026-09-04 found it working in Safari 26.5 (iOS 26.5) and Chromium 148. Older browsers get a clear "update your
+browser" message. A JS fallback (`@noble/curves`) is possible but not planned, to avoid bundling crypto.
+
 Trust caveat: a malicious server could hand Alice a fake public key for Bob and read what she seals to it. Defense: each
 user has a short safety code (a fingerprint of their public key) on their profile. Teammates can compare it once, in
 person or by chat, and the app warns if a teammate's key ever changes. This is the same model Signal and WhatsApp use, and
