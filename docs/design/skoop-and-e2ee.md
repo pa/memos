@@ -128,7 +128,10 @@ resume. Old plaintext lingers in Litestream history until retention expires, so 
 
 ## 6. Phases
 
-0. **Hotfixes on today's deploy**: back up the current DB, release or discard the pending skoop changes.
+0. **Hotfixes on today's deploy**: back up the current DB, release or discard the pending skoop changes. The live DB is
+   `memos_prod.db` (148 KiB) plus an active `memos_prod.db-wal` in the bucket, so a copy of only the main file is
+   incomplete. `skoop debug gcloud storage cat` cannot sign URLs yet (platform IAM gap, reported 2026-10-10), so for now
+   use the in-app memo export from Settings. The migration in phase 1 must checkpoint the WAL from inside the app.
 1. **Storage**: Litestream plus lease, GCS attachment provider, skoop Dockerfile, migrate data, drop the FUSE mount.
 2. **E2EE core**: keyring, unlock and lock UI, encrypted memo content, client-side tags, search, and filters.
 3. **Encrypted attachments** and client thumbnails.
